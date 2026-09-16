@@ -3,17 +3,17 @@ import sqlite3
 import tkinter as tk
 from tkinter import messagebox
 
-# Importamos las funciones de las vistas que creamos en la carpeta views
+# Importamos las vistas desde la carpeta views
 from views.admin_view import abrir_panel_admin
 from views.teacher_view import abrir_panel_docente
 from views.student_view import abrir_panel_alumno
 
-# Ruta absoluta a la base de datos
+# Ruta absoluta a la base de datos dentro de la carpeta database
 DIR_PRINCIPAL = os.path.dirname(os.path.abspath(__file__))
 RUTA_DB = os.path.join(DIR_PRINCIPAL, "database", "lab_forense.db")
 
 def verificar_credenciales(usuario, password):
-    """Consulta las credenciales en SQLite."""
+    """Consulta las credenciales en la base de datos."""
     conexion = sqlite3.connect(RUTA_DB)
     cursor = conexion.cursor()
     cursor.execute("SELECT rol FROM usuarios WHERE nombre_usuario = ? AND password = ?", (usuario, password))
@@ -22,7 +22,7 @@ def verificar_credenciales(usuario, password):
     return resultado
 
 def intentar_login():
-    """Valida el acceso y redirige según el rol."""
+    """Valida el acceso, destruye el login y abre la pantalla del rol correspondiente."""
     usuario_ingresado = entry_usuario.get()
     password_ingresada = entry_password.get()
 
@@ -30,15 +30,16 @@ def intentar_login():
 
     if resultado:
         rol = resultado[0]
-        ventana_login.destroy() # Oculta/Destruye la ventana de Login
+        # Cerramos la ventana de inicio de sesión
+        ventana_login.destroy()
 
-        # Redirección según el rol
+        # Abrimos la ventana según el rol del usuario
         if rol == 'admin':
             abrir_panel_admin(usuario_ingresado)
         elif rol == 'docente':
             abrir_panel_docente(usuario_ingresado)
         elif rol == 'alumno':
-            abrir_panel_alumno(usuario_ingresado)
+            abrir_panel_alumno(usuario_ingresado) # <--- Aquí se abre la ventana con el temario
     else:
         messagebox.showerror("Error de Acceso", "Usuario o contraseña incorrectos.")
 
