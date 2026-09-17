@@ -7,58 +7,123 @@ from tkinter import ttk, messagebox
 DIR_PRINCIPAL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RUTA_DB = os.path.join(DIR_PRINCIPAL, "database", "lab_forense.db")
 
+# ==========================================
+# PALETA DE COLORES "HUD FORENSIC / HIGH-TECH"
+# (Ajustada para máxima elegancia)
+# ==========================================
+COLOR_BG_DARK = "#05070A"      # Negro abisal
+COLOR_CARD = "#090D18"         # Gris naval ultra oscuro
+COLOR_ACCENT = "#00F0FF"       # Cian neón principal
+COLOR_ACCENT_HOVER = "#00C4D4" # Cian de respuesta hover
+COLOR_TEXT_LIGHT = "#FFFFFF"   # Blanco puro
+COLOR_TEXT_MUTED = "#64748B"   # Gris técnico sutil
+COLOR_ENTRY_BG = "#0E1524"     # Fondo de entradas más oscuro que la tarjeta
+COLOR_BORDER = "#1E293B"       # Borde base de componentes
+COLOR_BORDER_FOCUS = "#00F0FF" # Borde activo al enfocar
+COLOR_DANGER = "#E63946"       # Rojo alerta elegante
+COLOR_DANGER_HOVER = "#D62828"
+
 def obtener_conexion():
     """Establece la conexión con la base de datos SQLite."""
     return sqlite3.connect(RUTA_DB)
 
+# Función auxiliar global para efectos hover de botones
+def aplicar_hover(boton, color_normal, color_hover):
+    boton.bind("<Enter>", lambda e: boton.config(bg=color_hover))
+    boton.bind("<Leave>", lambda e: boton.config(bg=color_normal))
+
 def abrir_panel_admin(usuario):
-    """Ventana principal del Administrador con pestañas para gestión del sistema."""
+    """Ventana principal del Administrador en Pantalla Completa con diseño HUD y animaciones."""
     ventana = tk.Tk()
     ventana.title(f"LAB VISUAL FORENSE - Panel Administrador ({usuario})")
-    ventana.geometry("750x600")
+    ventana.attributes('-fullscreen', True)  # Pantalla completa real
+    ventana.configure(bg=COLOR_BG_DARK)
 
-    # Contenedor de pestañas principal
+    # Iniciar completamente transparente para aplicar efecto Fade-In fluido
+    ventana.attributes("-alpha", 0.0)
+
+    def animar_entrada(alpha=0.0):
+        """Efecto de aparición gradual tipo HUD militar/tecnológico."""
+        if alpha < 1.0:
+            alpha += 0.05
+            ventana.attributes("-alpha", alpha)
+            ventana.after(20, lambda: animar_entrada(alpha))
+
+    # Configuración de estilos modernos para ttk (Pestañas, Combobox, etc.)
+    style = ttk.Style()
+    style.theme_use("clam")
+
+    # Estilo refinado del Notebook (Pestañas)
+    style.configure("TNotebook", background=COLOR_BG_DARK, borderwidth=0)
+    style.configure("TNotebook.Tab", background=COLOR_ENTRY_BG, foreground=COLOR_TEXT_MUTED, padding=[25, 12], font=("Segoe UI", 10, "bold"))
+    style.map("TNotebook.Tab", 
+              background=[("selected", COLOR_CARD)], 
+              foreground=[("selected", COLOR_ACCENT)])
+    
+    style.configure("TFrame", background=COLOR_CARD)
+    style.configure("TCombobox", fieldbackground=COLOR_ENTRY_BG, background=COLOR_BORDER, foreground=COLOR_TEXT_LIGHT, borderwidth=0)
+
+    # Contenedor principal de pestañas
     pestanas = ttk.Notebook(ventana)
-    pestanas.pack(fill="both", expand=True, padx=10, pady=10)
+    pestanas.pack(fill="both", expand=True, padx=40, pady=30)
 
-    # -------------------------------------------------------------
-    # PESTAÑA 1: GESTIÓN DE USUARIOS (CREAR ALUMNOS Y DOCENTES)
-    # -------------------------------------------------------------
+    # Función auxiliar para crear inputs estilizados con borde dinámico (Doble Frame)
+    def crear_campo_form(parent, label_text, is_password=False, is_combo=False, combo_values=None):
+        lbl = tk.Label(parent, text=label_text, font=("Segoe UI", 8, "bold"), bg=COLOR_CARD, fg=COLOR_TEXT_MUTED, anchor="w")
+        lbl.pack(fill="x", padx=50, pady=(10, 5))
+        
+        frame_entry = tk.Frame(parent, bg=COLOR_BORDER, bd=0)
+        frame_entry.pack(fill="x", padx=50, pady=(0, 5))
+
+        inner_frame = tk.Frame(frame_entry, bg=COLOR_ENTRY_BG, bd=0)
+        inner_frame.pack(fill="both", expand=True, padx=1, pady=1)
+
+        if is_combo:
+            widget = ttk.Combobox(inner_frame, values=combo_values, state="readonly", font=("Segoe UI", 11))
+            widget.set(combo_values[0])
+            widget.pack(fill="x", padx=5, pady=5)
+        else:
+            widget = tk.Entry(inner_frame, font=("Segoe UI", 11), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, insertbackground=COLOR_ACCENT, relief="flat", bd=0)
+            if is_password:
+                widget.config(show="●")
+            widget.pack(fill="x", padx=12, pady=10)
+
+            def on_focus_in(e):
+                frame_entry.config(bg=COLOR_BORDER_FOCUS)
+                lbl.config(fg=COLOR_ACCENT)
+            def on_focus_out(e):
+                frame_entry.config(bg=COLOR_BORDER)
+                lbl.config(fg=COLOR_TEXT_MUTED)
+
+            widget.bind("<FocusIn>", on_focus_in)
+            widget.bind("<FocusOut>", on_focus_out)
+            
+        return widget
+
+    # =============================================================
+    # PESTAÑA 1: GESTIÓN DE USUARIOS
+    # =============================================================
     tab_usuarios = ttk.Frame(pestanas)
     pestanas.add(tab_usuarios, text="👤 Registrar Usuarios")
 
-    tk.Label(tab_usuarios, text="Alta de Nuevos Usuarios", font=("Arial", 12, "bold")).pack(pady=10)
+    card_user = tk.Frame(tab_usuarios, bg=COLOR_CARD, bd=0)
+    card_user.place(relx=0.5, rely=0.5, anchor="center", width=600, height=560)
 
-    frame_form_user = ttk.Frame(tab_usuarios)
-    frame_form_user.pack(pady=10)
+    tk.Label(card_user, text="ALTA DE NUEVOS USUARIOS", font=("Segoe UI", 16, "bold"), bg=COLOR_CARD, fg=COLOR_TEXT_LIGHT).pack(pady=(40, 20))
 
-    # Campos de entrada para datos del nuevo usuario
-    ttk.Label(frame_form_user, text="Nombre Completo:").grid(row=0, column=0, sticky="e", pady=5)
-    entry_nombre = ttk.Entry(frame_form_user, width=35)
-    entry_nombre.grid(row=0, column=1, pady=5)
-
-    ttk.Label(frame_form_user, text="Nombre de Usuario:").grid(row=1, column=0, sticky="e", pady=5)
-    entry_user = ttk.Entry(frame_form_user, width=35)
-    entry_user.grid(row=1, column=1, pady=5)
-
-    ttk.Label(frame_form_user, text="Contraseña:").grid(row=2, column=0, sticky="e", pady=5)
-    entry_pass = ttk.Entry(frame_form_user, width=35, show="*")
-    entry_pass.grid(row=2, column=1, pady=5)
-
-    ttk.Label(frame_form_user, text="Rol del Usuario:").grid(row=3, column=0, sticky="e", pady=5)
-    combo_rol = ttk.Combobox(frame_form_user, values=["alumno", "docente", "admin"], state="readonly", width=32)
-    combo_rol.set("alumno")
-    combo_rol.grid(row=3, column=1, pady=5)
+    entry_nombre = crear_campo_form(card_user, "NOMBRE COMPLETO")
+    entry_user = crear_campo_form(card_user, "NOMBRE DE USUARIO")
+    entry_pass = crear_campo_form(card_user, "CONTRASEÑA", is_password=True)
+    combo_rol = crear_campo_form(card_user, "ROL DEL USUARIO", is_combo=True, combo_values=["alumno", "docente", "admin"])
 
     def guardar_usuario():
-        """Inserta un nuevo usuario en la base de datos."""
         nom = entry_nombre.get().strip()
         usr = entry_user.get().strip()
         pwd = entry_pass.get().strip()
         rol = combo_rol.get()
 
         if not nom or not usr or not pwd:
-            messagebox.showwarning("Atención", "Por favor completa todos los campos.")
+            messagebox.showwarning("Atención", "Por favor completa todos los campos requeridos.")
             return
 
         try:
@@ -72,46 +137,67 @@ def abrir_panel_admin(usuario):
             conn.close()
 
             messagebox.showinfo("Éxito", f"Usuario '{usr}' registrado correctamente como {rol}.")
-            # Limpiar campos después de guardar
             entry_nombre.delete(0, tk.END)
             entry_user.delete(0, tk.END)
             entry_pass.delete(0, tk.END)
         except sqlite3.IntegrityError:
-            messagebox.showerror("Error", "El nombre de usuario ya existe. Elige otro.")
+            messagebox.showerror("Error", "El nombre de usuario ya existe en el sistema.")
 
-    ttk.Button(tab_usuarios, text="Registrar Usuario", command=guardar_usuario).pack(pady=15)
+    btn_guardar_u = tk.Button(card_user, text="REGISTRAR USUARIO", command=guardar_usuario, font=("Segoe UI", 11, "bold"), bg=COLOR_ACCENT, fg=COLOR_BG_DARK, activebackground=COLOR_ACCENT_HOVER, relief="flat", cursor="hand2", bd=0)
+    btn_guardar_u.pack(fill="x", padx=50, pady=(35, 20), ipady=12)
+    aplicar_hover(btn_guardar_u, COLOR_ACCENT, COLOR_ACCENT_HOVER)
 
-    # -------------------------------------------------------------
-    # PESTAÑA 2: GESTIÓN DEL TEMARIO (AGREGAR TEORÍA)
-    # -------------------------------------------------------------
+    # =============================================================
+    # PESTAÑA 2: GESTIÓN DEL TEMARIO
+    # =============================================================
     tab_temario = ttk.Frame(pestanas)
     pestanas.add(tab_temario, text="📚 Agregar Temas")
 
-    tk.Label(tab_temario, text="Añadir Unidades / Temas al Temario", font=("Arial", 12, "bold")).pack(pady=10)
+    card_tema = tk.Frame(tab_temario, bg=COLOR_CARD, bd=0)
+    card_tema.place(relx=0.5, rely=0.5, anchor="center", width=700, height=600)
 
-    frame_form_tema = ttk.Frame(tab_temario)
-    frame_form_tema.pack(pady=5)
+    tk.Label(card_tema, text="GESTIÓN DE UNIDADES Y TEMARIO", font=("Segoe UI", 16, "bold"), bg=COLOR_CARD, fg=COLOR_TEXT_LIGHT).pack(pady=(35, 15))
 
-    ttk.Label(frame_form_tema, text="Número de Unidad:").grid(row=0, column=0, sticky="e", pady=5)
-    entry_unidad = ttk.Entry(frame_form_tema, width=10)
-    entry_unidad.grid(row=0, column=1, sticky="w", pady=5)
+    # Helper local para campos de Temario (reutiliza el estilo doble frame)
+    def crear_campo_temario(parent, label_text, is_text_area=False):
+        lbl = tk.Label(parent, text=label_text, font=("Segoe UI", 8, "bold"), bg=COLOR_CARD, fg=COLOR_TEXT_MUTED, anchor="w")
+        lbl.pack(fill="x", padx=50, pady=(10, 5))
+        
+        frame_entry = tk.Frame(parent, bg=COLOR_BORDER, bd=0)
+        frame_entry.pack(fill="x", padx=50, pady=(0, 5))
+        
+        inner_frame = tk.Frame(frame_entry, bg=COLOR_ENTRY_BG, bd=0)
+        inner_frame.pack(fill="both", expand=True, padx=1, pady=1)
 
-    ttk.Label(frame_form_tema, text="Título de la Unidad:").grid(row=1, column=0, sticky="e", pady=5)
-    entry_titulo_tema = ttk.Entry(frame_form_tema, width=45)
-    entry_titulo_tema.grid(row=1, column=1, pady=5)
+        if is_text_area:
+            widget = tk.Text(inner_frame, height=6, font=("Segoe UI", 11), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, insertbackground=COLOR_ACCENT, relief="flat", bd=0)
+            widget.pack(fill="x", padx=12, pady=10)
+        else:
+            widget = tk.Entry(inner_frame, font=("Segoe UI", 11), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, insertbackground=COLOR_ACCENT, relief="flat", bd=0)
+            widget.pack(fill="x", padx=12, pady=10)
 
-    ttk.Label(tab_temario, text="Contenido Teórico / Subtemas:").pack(pady=5)
-    text_contenido_tema = tk.Text(tab_temario, height=8, width=65, font=("Arial", 9))
-    text_contenido_tema.pack()
+        def on_focus_in(e):
+            frame_entry.config(bg=COLOR_BORDER_FOCUS)
+            lbl.config(fg=COLOR_ACCENT)
+        def on_focus_out(e):
+            frame_entry.config(bg=COLOR_BORDER)
+            lbl.config(fg=COLOR_TEXT_MUTED)
+
+        widget.bind("<FocusIn>", on_focus_in)
+        widget.bind("<FocusOut>", on_focus_out)
+        return widget
+
+    entry_unidad = crear_campo_temario(card_tema, "NÚMERO DE UNIDAD")
+    entry_titulo_tema = crear_campo_temario(card_tema, "TÍTULO DE LA UNIDAD")
+    text_contenido_tema = crear_campo_temario(card_tema, "CONTENIDO TEÓRICO / SUBTEMAS", is_text_area=True)
 
     def guardar_tema():
-        """Guarda un nuevo tema o unidad en la tabla 'temas'."""
         num_u = entry_unidad.get().strip()
         tit = entry_titulo_tema.get().strip()
         cont = text_contenido_tema.get("1.0", tk.END).strip()
 
         if not num_u.isdigit() or not tit or not cont:
-            messagebox.showwarning("Atención", "Ingresa un número válidode unidad, título y contenido.")
+            messagebox.showwarning("Atención", "Ingresa un número válido de unidad, título y contenido.")
             return
 
         conn = obtener_conexion()
@@ -127,26 +213,31 @@ def abrir_panel_admin(usuario):
         entry_unidad.delete(0, tk.END)
         entry_titulo_tema.delete(0, tk.END)
         text_contenido_tema.delete("1.0", tk.END)
-        actualizar_combo_temas() # Actualizar la lista en la pestaña de preguntas
+        actualizar_combo_temas()
 
-    ttk.Button(tab_temario, text="Guardar Unidad", command=guardar_tema).pack(pady=10)
+    btn_guardar_t = tk.Button(card_tema, text="GUARDAR UNIDAD", command=guardar_tema, font=("Segoe UI", 11, "bold"), bg=COLOR_ACCENT, fg=COLOR_BG_DARK, activebackground=COLOR_ACCENT_HOVER, relief="flat", cursor="hand2", bd=0)
+    btn_guardar_t.pack(fill="x", padx=50, pady=(25, 20), ipady=12)
+    aplicar_hover(btn_guardar_t, COLOR_ACCENT, COLOR_ACCENT_HOVER)
 
-    # -------------------------------------------------------------
+
+    # =============================================================
     # PESTAÑA 3: GESTIÓN DE PREGUNTAS
-    # -------------------------------------------------------------
+    # =============================================================
     tab_preguntas = ttk.Frame(pestanas)
     pestanas.add(tab_preguntas, text="📝 Agregar Preguntas")
 
-    tk.Label(tab_preguntas, text="Crear Preguntas de Opción Múltiple", font=("Arial", 12, "bold")).pack(pady=10)
+    card_preg = tk.Frame(tab_preguntas, bg=COLOR_CARD, bd=0)
+    card_preg.place(relx=0.5, rely=0.5, anchor="center", width=760, height=720)
 
-    ttk.Label(tab_preguntas, text="Seleccionar Unidad / Tema:").pack()
-    combo_temas_preg = ttk.Combobox(tab_preguntas, state="readonly", width=50)
-    combo_temas_preg.pack(pady=5)
+    tk.Label(card_preg, text="BANCO DE PREGUNTAS DE EVALUACIÓN", font=("Segoe UI", 16, "bold"), bg=COLOR_CARD, fg=COLOR_TEXT_LIGHT).pack(pady=(30, 15))
+
+    tk.Label(card_preg, text="SELECCIONAR UNIDAD / TEMA", font=("Segoe UI", 8, "bold"), bg=COLOR_CARD, fg=COLOR_TEXT_MUTED, anchor="w").pack(fill="x", padx=40, pady=(0, 5))
+    combo_temas_preg = ttk.Combobox(card_preg, state="readonly", font=("Segoe UI", 10))
+    combo_temas_preg.pack(fill="x", padx=40, pady=(0, 20))
 
     lista_temas_ids = []
 
     def actualizar_combo_temas():
-        """Carga las unidades registradas para asociarle preguntas."""
         conn = obtener_conexion()
         cursor = conn.cursor()
         cursor.execute("SELECT id, unidad, titulo FROM temas ORDER BY unidad ASC")
@@ -163,36 +254,49 @@ def abrir_panel_admin(usuario):
         if opciones:
             combo_temas_preg.current(0)
 
-    frame_form_preg = ttk.Frame(tab_preguntas)
-    frame_form_preg.pack(pady=5)
+    # Estilo refinado para las filas de preguntas (Doble Frame horizontal)
+    def crear_fila_input(parent, label_text):
+        f = tk.Frame(parent, bg=COLOR_CARD)
+        f.pack(fill="x", padx=40, pady=6)
+        
+        lbl = tk.Label(f, text=label_text, font=("Segoe UI", 9, "bold"), bg=COLOR_CARD, fg=COLOR_TEXT_MUTED, width=12, anchor="w")
+        lbl.pack(side="left")
+        
+        frame_entry = tk.Frame(f, bg=COLOR_BORDER, bd=0)
+        frame_entry.pack(side="right", expand=True, fill="x")
+        
+        inner_frame = tk.Frame(frame_entry, bg=COLOR_ENTRY_BG, bd=0)
+        inner_frame.pack(fill="both", expand=True, padx=1, pady=1)
 
-    ttk.Label(frame_form_preg, text="Pregunta:").grid(row=0, column=0, sticky="e", pady=3)
-    entry_preg = ttk.Entry(frame_form_preg, width=50)
-    entry_preg.grid(row=0, column=1, pady=3)
+        ent = tk.Entry(inner_frame, font=("Segoe UI", 11), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, insertbackground=COLOR_ACCENT, relief="flat", bd=0)
+        ent.pack(fill="x", padx=10, pady=8)
 
-    ttk.Label(frame_form_preg, text="Opción A:").grid(row=1, column=0, sticky="e", pady=3)
-    entry_op_a = ttk.Entry(frame_form_preg, width=50)
-    entry_op_a.grid(row=1, column=1, pady=3)
+        def on_focus_in(e):
+            frame_entry.config(bg=COLOR_BORDER_FOCUS)
+            lbl.config(fg=COLOR_ACCENT)
+        def on_focus_out(e):
+            frame_entry.config(bg=COLOR_BORDER)
+            lbl.config(fg=COLOR_TEXT_MUTED)
 
-    ttk.Label(frame_form_preg, text="Opción B:").grid(row=2, column=0, sticky="e", pady=3)
-    entry_op_b = ttk.Entry(frame_form_preg, width=50)
-    entry_op_b.grid(row=2, column=1, pady=3)
+        ent.bind("<FocusIn>", on_focus_in)
+        ent.bind("<FocusOut>", on_focus_out)
+        return ent
 
-    ttk.Label(frame_form_preg, text="Opción C:").grid(row=3, column=0, sticky="e", pady=3)
-    entry_op_c = ttk.Entry(frame_form_preg, width=50)
-    entry_op_c.grid(row=3, column=1, pady=3)
+    entry_preg = crear_fila_input(card_preg, "Pregunta:")
+    entry_op_a = crear_fila_input(card_preg, "Opción A:")
+    entry_op_b = crear_fila_input(card_preg, "Opción B:")
+    entry_op_c = crear_fila_input(card_preg, "Opción C:")
+    entry_op_d = crear_fila_input(card_preg, "Opción D:")
 
-    ttk.Label(frame_form_preg, text="Opción D:").grid(row=4, column=0, sticky="e", pady=3)
-    entry_op_d = ttk.Entry(frame_form_preg, width=50)
-    entry_op_d.grid(row=4, column=1, pady=3)
-
-    ttk.Label(frame_form_preg, text="Respuesta Correcta:").grid(row=5, column=0, sticky="e", pady=3)
-    combo_correcta = ttk.Combobox(frame_form_preg, values=["A", "B", "C", "D"], state="readonly", width=10)
+    # Fila para respuesta correcta
+    f_rc = tk.Frame(card_preg, bg=COLOR_CARD)
+    f_rc.pack(fill="x", padx=40, pady=(15, 10))
+    tk.Label(f_rc, text="Correcta:", font=("Segoe UI", 9, "bold"), bg=COLOR_CARD, fg=COLOR_TEXT_MUTED, width=12, anchor="w").pack(side="left")
+    combo_correcta = ttk.Combobox(f_rc, values=["A", "B", "C", "D"], state="readonly", font=("Segoe UI", 10), width=15)
     combo_correcta.set("A")
-    combo_correcta.grid(row=5, column=1, sticky="w", pady=3)
+    combo_correcta.pack(side="left")
 
     def guardar_pregunta():
-        """Inserta la pregunta en la base de datos."""
         idx = combo_temas_preg.current()
         if idx == -1 or not lista_temas_ids:
             messagebox.showwarning("Atención", "Selecciona un tema primero.")
@@ -227,12 +331,33 @@ def abrir_panel_admin(usuario):
         entry_op_c.delete(0, tk.END)
         entry_op_d.delete(0, tk.END)
 
-    ttk.Button(tab_preguntas, text="Guardar Pregunta", command=guardar_pregunta).pack(pady=10)
+    btn_guardar_p = tk.Button(card_preg, text="GUARDAR PREGUNTA", command=guardar_pregunta, font=("Segoe UI", 11, "bold"), bg=COLOR_ACCENT, fg=COLOR_BG_DARK, activebackground=COLOR_ACCENT_HOVER, relief="flat", cursor="hand2", bd=0)
+    btn_guardar_p.pack(fill="x", padx=40, pady=(20, 15), ipady=12)
+    aplicar_hover(btn_guardar_p, COLOR_ACCENT, COLOR_ACCENT_HOVER)
 
-    # Inicializar menú desplegable de temas
     actualizar_combo_temas()
 
-    # Botón inferior
-    tk.Button(ventana, text="Cerrar Sesión", command=ventana.destroy, bg="#f44336", fg="white").pack(pady=5)
+    # Botón inferior para Cerrar Sesión (Ahora con hover rojo intenso)
+    btn_cerrar = tk.Button(
+        ventana, 
+        text="CERRAR SESIÓN DE ADMINISTRADOR", 
+        command=ventana.destroy, 
+        font=("Segoe UI", 10, "bold"), 
+        bg=COLOR_DANGER, 
+        fg=COLOR_TEXT_LIGHT, 
+        activebackground=COLOR_DANGER_HOVER, 
+        activeforeground=COLOR_TEXT_LIGHT,
+        relief="flat", 
+        cursor="hand2",
+        bd=0
+    )
+    btn_cerrar.pack(fill="x", padx=40, pady=(0, 25), ipady=12)
+    aplicar_hover(btn_cerrar, COLOR_DANGER, COLOR_DANGER_HOVER)
+
+    # Atajo global de teclado para salir de pantalla completa con ESC
+    ventana.bind("<Escape>", lambda e: ventana.destroy())
+
+    # Ejecutar animación de entrada
+    ventana.after(100, animar_entrada)
 
     ventana.mainloop()
