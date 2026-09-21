@@ -1,363 +1,278 @@
 import os
 import sqlite3
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox, ttk
 
-# Calculamos la ruta absoluta hacia la base de datos
 DIR_PRINCIPAL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RUTA_DB = os.path.join(DIR_PRINCIPAL, "database", "lab_forense.db")
 
-# ==========================================
-# PALETA DE COLORES "HUD FORENSIC / HIGH-TECH"
-# (Ajustada para máxima elegancia)
-# ==========================================
-COLOR_BG_DARK = "#05070A"      # Negro abisal
-COLOR_CARD = "#090D18"         # Gris naval ultra oscuro
-COLOR_ACCENT = "#00F0FF"       # Cian neón principal
-COLOR_ACCENT_HOVER = "#00C4D4" # Cian de respuesta hover
-COLOR_TEXT_LIGHT = "#FFFFFF"   # Blanco puro
-COLOR_TEXT_MUTED = "#64748B"   # Gris técnico sutil
-COLOR_ENTRY_BG = "#0E1524"     # Fondo de entradas más oscuro que la tarjeta
-COLOR_BORDER = "#1E293B"       # Borde base de componentes
-COLOR_BORDER_FOCUS = "#00F0FF" # Borde activo al enfocar
-COLOR_DANGER = "#E63946"       # Rojo alerta elegante
+COLOR_BG_DARK = "#05070A"
+COLOR_CARD = "#090D18"
+COLOR_ACCENT = "#00F0FF"
+COLOR_ACCENT_HOVER = "#00C4D4"
+COLOR_TEXT_LIGHT = "#FFFFFF"
+COLOR_TEXT_MUTED = "#64748B"
+COLOR_ENTRY_BG = "#0E1524"
+COLOR_BORDER = "#1E293B"
+COLOR_DANGER = "#E63946"
 COLOR_DANGER_HOVER = "#D62828"
 
-def obtener_conexion():
-    """Establece la conexión con la base de datos SQLite."""
-    return sqlite3.connect(RUTA_DB)
 
-# Función auxiliar global para efectos hover de botones
 def aplicar_hover(boton, color_normal, color_hover):
     boton.bind("<Enter>", lambda e: boton.config(bg=color_hover))
     boton.bind("<Leave>", lambda e: boton.config(bg=color_normal))
 
+
+# ==========================================
+# FUNCIONES DE BASE DE DATOS
+# ==========================================
+def obtener_docentes():
+    conexion = sqlite3.connect(RUTA_DB)
+    cursor = conexion.cursor()
+    cursor.execute("SELECT id, nombre_usuario FROM usuarios WHERE rol = 'docente'")
+    res = cursor.fetchall()
+    conexion.close()
+    return res
+
+
+def obtener_alumnos_sin_grupo():
+    conexion = sqlite3.connect(RUTA_DB)
+    cursor = conexion.cursor()
+    cursor.execute("SELECT id, nombre_usuario FROM usuarios WHERE rol = 'alumno'")
+    res = cursor.fetchall()
+    conexion.close()
+    return res
+
+
+def obtener_grupos_con_docente():
+    conexion = sqlite3.connect(RUTA_DB)
+    cursor = conexion.cursor()
+    cursor.execute("""
+                   SELECT g.id, g.nombre_grupo, COALESCE(u.nombre_usuario, 'Sin Docente')
+                   FROM grupos g
+                            LEFT JOIN usuarios u ON g.docente_id = u.id
+                   """)
+    res = cursor.fetchall()
+    conexion.close()
+    return res
+
+
+def crear_usuario_bd(usuario, clave, rol):
+    try:
+        conexion = sqlite3.connect(RUTA_DB)
+        cursor = conexion.cursor()
+        cursor.execute("INSERT INTO usuarios (nombre_usuario, contrasena, rol) VALUES (?, ?, ?)", (usuario, clave, rol))
+        conexion.commit()
+        conexion.close()
+        return True, "Usuario creado exitosamente."
+    except sqlite3.IntegrityError:
+        return False, "El nombre de usuario ya existe."
+
+
+def crear_grupo_bd(nombre_grupo, docente_id):
+    try:
+        conexion = sqlite3.connect(RUTA_DB)
+        cursor = conexion.cursor()
+        cursor.execute("INSERT INTO grupos (nombre_grupo, docente_id) VALUES (?, ?)", (nombre_grupo, docente_id))
+        conexion.commit()
+        conexion.close()
+        return True, "Grupo registrado correctamente."
+    except sqlite3.IntegrityError:
+        return False, "El grupo ya existe."
+
+
+def asignar_alumno_a_grupo(alumno_id, grupo_id):
+    conexion = sqlite3.connect(RUTA_DB)
+    cursor = conexion.cursor()
+    cursor.execute("UPDATE usuarios SET grupo_id = ? WHERE id = ?", (grupo_id, alumno_id))
+    conexion.commit()
+    conexion.close()
+
+
+# ==========================================
+# INTERFAZ ADMIN
+# ==========================================
 def abrir_panel_admin(usuario):
-    """Ventana principal del Administrador en Pantalla Completa con diseño HUD y animaciones."""
     ventana = tk.Tk()
     ventana.title(f"LAB VISUAL FORENSE - Panel Administrador ({usuario})")
-    ventana.attributes('-fullscreen', True)  # Pantalla completa real
+    ventana.attributes('-fullscreen', True)
     ventana.configure(bg=COLOR_BG_DARK)
 
-    # Iniciar completamente transparente para aplicar efecto Fade-In fluido
-    ventana.attributes("-alpha", 0.0)
-
-    def animar_entrada(alpha=0.0):
-        """Efecto de aparición gradual tipo HUD militar/tecnológico."""
-        if alpha < 1.0:
-            alpha += 0.05
-            ventana.attributes("-alpha", alpha)
-            ventana.after(20, lambda: animar_entrada(alpha))
-
-    # Configuración de estilos modernos para ttk (Pestañas, Combobox, etc.)
     style = ttk.Style()
     style.theme_use("clam")
-
-    # Estilo refinado del Notebook (Pestañas)
+    style.configure("Treeview", background=COLOR_ENTRY_BG, foreground=COLOR_TEXT_LIGHT, fieldbackground=COLOR_ENTRY_BG,
+                    borderwidth=0, rowheight=28)
+    style.configure("Treeview.Heading", background=COLOR_BORDER, foreground=COLOR_ACCENT, font=("Segoe UI", 9, "bold"))
+    style.map('Treeview', background=[('selected', COLOR_BORDER)], foreground=[('selected', COLOR_ACCENT)])
     style.configure("TNotebook", background=COLOR_BG_DARK, borderwidth=0)
-    style.configure("TNotebook.Tab", background=COLOR_ENTRY_BG, foreground=COLOR_TEXT_MUTED, padding=[25, 12], font=("Segoe UI", 10, "bold"))
-    style.map("TNotebook.Tab", 
-              background=[("selected", COLOR_CARD)], 
-              foreground=[("selected", COLOR_ACCENT)])
-    
-    style.configure("TFrame", background=COLOR_CARD)
-    style.configure("TCombobox", fieldbackground=COLOR_ENTRY_BG, background=COLOR_BORDER, foreground=COLOR_TEXT_LIGHT, borderwidth=0)
+    style.configure("TNotebook.Tab", background=COLOR_ENTRY_BG, foreground=COLOR_TEXT_MUTED, padding=[20, 10],
+                    font=("Segoe UI", 10, "bold"))
+    style.map("TNotebook.Tab", background=[("selected", COLOR_CARD)], foreground=[("selected", COLOR_ACCENT)])
 
-    # Contenedor principal de pestañas
-    pestanas = ttk.Notebook(ventana)
-    pestanas.pack(fill="both", expand=True, padx=40, pady=30)
+    # Header
+    header = tk.Frame(ventana, bg=COLOR_CARD, height=60)
+    header.pack(fill="x", side="top")
+    header.pack_propagate(False)
 
-    # Función auxiliar para crear inputs estilizados con borde dinámico (Doble Frame)
-    def crear_campo_form(parent, label_text, is_password=False, is_combo=False, combo_values=None):
-        lbl = tk.Label(parent, text=label_text, font=("Segoe UI", 8, "bold"), bg=COLOR_CARD, fg=COLOR_TEXT_MUTED, anchor="w")
-        lbl.pack(fill="x", padx=50, pady=(10, 5))
-        
-        frame_entry = tk.Frame(parent, bg=COLOR_BORDER, bd=0)
-        frame_entry.pack(fill="x", padx=50, pady=(0, 5))
+    tk.Label(header, text="⚙️ ADMINISTRACIÓN - USUARIOS Y GRUPOS", font=("Segoe UI", 14, "bold"), bg=COLOR_CARD,
+             fg=COLOR_ACCENT).pack(side="left", padx=20)
+    btn_cerrar = tk.Button(header, text="CERRAR SESIÓN", command=ventana.destroy, font=("Segoe UI", 9, "bold"),
+                           bg=COLOR_DANGER, fg=COLOR_TEXT_LIGHT, bd=0, cursor="hand2")
+    btn_cerrar.pack(side="right", padx=20, ipadx=10, ipady=5)
 
-        inner_frame = tk.Frame(frame_entry, bg=COLOR_ENTRY_BG, bd=0)
-        inner_frame.pack(fill="both", expand=True, padx=1, pady=1)
+    notebook = ttk.Notebook(ventana)
+    notebook.pack(fill="both", expand=True, padx=20, pady=20)
 
-        if is_combo:
-            widget = ttk.Combobox(inner_frame, values=combo_values, state="readonly", font=("Segoe UI", 11))
-            widget.set(combo_values[0])
-            widget.pack(fill="x", padx=5, pady=5)
-        else:
-            widget = tk.Entry(inner_frame, font=("Segoe UI", 11), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, insertbackground=COLOR_ACCENT, relief="flat", bd=0)
-            if is_password:
-                widget.config(show="●")
-            widget.pack(fill="x", padx=12, pady=10)
+    # -------------------------------------------------------------
+    # PESTAÑA 1: GESTIÓN DE DOCENTES Y GRUPOS
+    # -------------------------------------------------------------
+    tab_grupos = ttk.Frame(notebook)
+    notebook.add(tab_grupos, text="👥 Docentes y Grupos")
 
-            def on_focus_in(e):
-                frame_entry.config(bg=COLOR_BORDER_FOCUS)
-                lbl.config(fg=COLOR_ACCENT)
-            def on_focus_out(e):
-                frame_entry.config(bg=COLOR_BORDER)
-                lbl.config(fg=COLOR_TEXT_MUTED)
+    f_left = tk.Frame(tab_grupos, bg=COLOR_CARD, width=420)
+    f_left.pack(side="left", fill="both", padx=(0, 10), pady=10)
 
-            widget.bind("<FocusIn>", on_focus_in)
-            widget.bind("<FocusOut>", on_focus_out)
-            
-        return widget
+    f_right = tk.Frame(tab_grupos, bg=COLOR_CARD)
+    f_right.pack(side="right", fill="both", expand=True, pady=10)
 
-    # =============================================================
-    # PESTAÑA 1: GESTIÓN DE USUARIOS
-    # =============================================================
-    tab_usuarios = ttk.Frame(pestanas)
-    pestanas.add(tab_usuarios, text="👤 Registrar Usuarios")
+    # 1. Crear Usuario
+    tk.Label(f_left, text="1. REGISTRAR USUARIO", font=("Segoe UI", 11, "bold"), bg=COLOR_CARD, fg=COLOR_ACCENT).pack(
+        pady=(15, 10), padx=15, anchor="w")
 
-    card_user = tk.Frame(tab_usuarios, bg=COLOR_CARD, bd=0)
-    card_user.place(relx=0.5, rely=0.5, anchor="center", width=600, height=560)
+    entry_u_nom = tk.Entry(f_left, font=("Segoe UI", 10), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, bd=0)
+    entry_u_nom.pack(fill="x", padx=15, pady=4, ipady=4)
+    entry_u_nom.insert(0, "Usuario")
 
-    tk.Label(card_user, text="ALTA DE NUEVOS USUARIOS", font=("Segoe UI", 16, "bold"), bg=COLOR_CARD, fg=COLOR_TEXT_LIGHT).pack(pady=(40, 20))
+    entry_u_pass = tk.Entry(f_left, font=("Segoe UI", 10), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, bd=0, show="*")
+    entry_u_pass.pack(fill="x", padx=15, pady=4, ipady=4)
 
-    entry_nombre = crear_campo_form(card_user, "NOMBRE COMPLETO")
-    entry_user = crear_campo_form(card_user, "NOMBRE DE USUARIO")
-    entry_pass = crear_campo_form(card_user, "CONTRASEÑA", is_password=True)
-    combo_rol = crear_campo_form(card_user, "ROL DEL USUARIO", is_combo=True, combo_values=["alumno", "docente", "admin"])
+    combo_rol = ttk.Combobox(f_left, values=["docente", "alumno"], state="readonly", font=("Segoe UI", 10))
+    combo_rol.set("docente")
+    combo_rol.pack(fill="x", padx=15, pady=4)
 
-    def guardar_usuario():
-        nom = entry_nombre.get().strip()
-        usr = entry_user.get().strip()
-        pwd = entry_pass.get().strip()
-        rol = combo_rol.get()
-
-        if not nom or not usr or not pwd:
-            messagebox.showwarning("Atención", "Por favor completa todos los campos requeridos.")
+    def action_crear_u():
+        u = entry_u_nom.get().strip()
+        p = entry_u_pass.get().strip()
+        r = combo_rol.get()
+        if not u or not p:
+            messagebox.showwarning("Atención", "Ingresa usuario y contraseña.")
             return
+        ok, msg = crear_usuario_bd(u, p, r)
+        messagebox.showinfo("Resultado", msg)
+        if ok:
+            actualizar_combos()
 
-        try:
-            conn = obtener_conexion()
-            cursor = conn.cursor()
-            cursor.execute(
-                "INSERT INTO usuarios (nombre_completo, nombre_usuario, password, rol) VALUES (?, ?, ?, ?)",
-                (nom, usr, pwd, rol)
-            )
-            conn.commit()
-            conn.close()
+    tk.Button(f_left, text="CREAR USUARIO", command=action_crear_u, bg=COLOR_ACCENT, fg=COLOR_BG_DARK,
+              font=("Segoe UI", 9, "bold"), bd=0, cursor="hand2").pack(fill="x", padx=15, pady=10, ipady=5)
 
-            messagebox.showinfo("Éxito", f"Usuario '{usr}' registrado correctamente como {rol}.")
-            entry_nombre.delete(0, tk.END)
-            entry_user.delete(0, tk.END)
-            entry_pass.delete(0, tk.END)
-        except sqlite3.IntegrityError:
-            messagebox.showerror("Error", "El nombre de usuario ya existe en el sistema.")
+    tk.Frame(f_left, bg=COLOR_BORDER, height=1).pack(fill="x", padx=15, pady=10)
 
-    btn_guardar_u = tk.Button(card_user, text="REGISTRAR USUARIO", command=guardar_usuario, font=("Segoe UI", 11, "bold"), bg=COLOR_ACCENT, fg=COLOR_BG_DARK, activebackground=COLOR_ACCENT_HOVER, relief="flat", cursor="hand2", bd=0)
-    btn_guardar_u.pack(fill="x", padx=50, pady=(35, 20), ipady=12)
-    aplicar_hover(btn_guardar_u, COLOR_ACCENT, COLOR_ACCENT_HOVER)
+    # 2. Crear Grupo y Asignar Docente
+    tk.Label(f_left, text="2. CREAR GRUPO Y ASIGNAR DOCENTE", font=("Segoe UI", 11, "bold"), bg=COLOR_CARD,
+             fg=COLOR_ACCENT).pack(pady=(5, 10), padx=15, anchor="w")
 
-    # =============================================================
-    # PESTAÑA 2: GESTIÓN DEL TEMARIO
-    # =============================================================
-    tab_temario = ttk.Frame(pestanas)
-    pestanas.add(tab_temario, text="📚 Agregar Temas")
+    entry_g_nom = tk.Entry(f_left, font=("Segoe UI", 10), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, bd=0)
+    entry_g_nom.pack(fill="x", padx=15, pady=4, ipady=4)
+    entry_g_nom.insert(0, "Nombre Grupo (ej. 4IV1)")
 
-    card_tema = tk.Frame(tab_temario, bg=COLOR_CARD, bd=0)
-    card_tema.place(relx=0.5, rely=0.5, anchor="center", width=700, height=600)
+    combo_docentes = ttk.Combobox(f_left, state="readonly", font=("Segoe UI", 10))
+    combo_docentes.pack(fill="x", padx=15, pady=4)
 
-    tk.Label(card_tema, text="GESTIÓN DE UNIDADES Y TEMARIO", font=("Segoe UI", 16, "bold"), bg=COLOR_CARD, fg=COLOR_TEXT_LIGHT).pack(pady=(35, 15))
+    dict_docentes = {}
 
-    # Helper local para campos de Temario (reutiliza el estilo doble frame)
-    def crear_campo_temario(parent, label_text, is_text_area=False):
-        lbl = tk.Label(parent, text=label_text, font=("Segoe UI", 8, "bold"), bg=COLOR_CARD, fg=COLOR_TEXT_MUTED, anchor="w")
-        lbl.pack(fill="x", padx=50, pady=(10, 5))
-        
-        frame_entry = tk.Frame(parent, bg=COLOR_BORDER, bd=0)
-        frame_entry.pack(fill="x", padx=50, pady=(0, 5))
-        
-        inner_frame = tk.Frame(frame_entry, bg=COLOR_ENTRY_BG, bd=0)
-        inner_frame.pack(fill="both", expand=True, padx=1, pady=1)
-
-        if is_text_area:
-            widget = tk.Text(inner_frame, height=6, font=("Segoe UI", 11), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, insertbackground=COLOR_ACCENT, relief="flat", bd=0)
-            widget.pack(fill="x", padx=12, pady=10)
-        else:
-            widget = tk.Entry(inner_frame, font=("Segoe UI", 11), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, insertbackground=COLOR_ACCENT, relief="flat", bd=0)
-            widget.pack(fill="x", padx=12, pady=10)
-
-        def on_focus_in(e):
-            frame_entry.config(bg=COLOR_BORDER_FOCUS)
-            lbl.config(fg=COLOR_ACCENT)
-        def on_focus_out(e):
-            frame_entry.config(bg=COLOR_BORDER)
-            lbl.config(fg=COLOR_TEXT_MUTED)
-
-        widget.bind("<FocusIn>", on_focus_in)
-        widget.bind("<FocusOut>", on_focus_out)
-        return widget
-
-    entry_unidad = crear_campo_temario(card_tema, "NÚMERO DE UNIDAD")
-    entry_titulo_tema = crear_campo_temario(card_tema, "TÍTULO DE LA UNIDAD")
-    text_contenido_tema = crear_campo_temario(card_tema, "CONTENIDO TEÓRICO / SUBTEMAS", is_text_area=True)
-
-    def guardar_tema():
-        num_u = entry_unidad.get().strip()
-        tit = entry_titulo_tema.get().strip()
-        cont = text_contenido_tema.get("1.0", tk.END).strip()
-
-        if not num_u.isdigit() or not tit or not cont:
-            messagebox.showwarning("Atención", "Ingresa un número válido de unidad, título y contenido.")
+    def action_crear_g():
+        g = entry_g_nom.get().strip()
+        doc_sel = combo_docentes.get()
+        if not g or not doc_sel:
+            messagebox.showwarning("Atención", "Escribe el nombre del grupo y selecciona un docente.")
             return
+        doc_id = dict_docentes[doc_sel]
+        ok, msg = crear_grupo_bd(g, doc_id)
+        messagebox.showinfo("Resultado", msg)
+        if ok:
+            actualizar_combos()
 
-        conn = obtener_conexion()
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO temas (unidad, titulo, contenido_teorico) VALUES (?, ?, ?)",
-            (int(num_u), tit, cont)
-        )
-        conn.commit()
-        conn.close()
+    tk.Button(f_left, text="CREAR GRUPO", command=action_crear_g, bg=COLOR_ACCENT, fg=COLOR_BG_DARK,
+              font=("Segoe UI", 9, "bold"), bd=0, cursor="hand2").pack(fill="x", padx=15, pady=10, ipady=5)
 
-        messagebox.showinfo("Éxito", f"Unidad {num_u} agregada correctamente.")
-        entry_unidad.delete(0, tk.END)
-        entry_titulo_tema.delete(0, tk.END)
-        text_contenido_tema.delete("1.0", tk.END)
-        actualizar_combo_temas()
+    # Lado Derecho: Asignar Alumnos a Grupos
+    tk.Label(f_right, text="3. ASIGNAR ALUMNOS A GRUPOS", font=("Segoe UI", 11, "bold"), bg=COLOR_CARD,
+             fg=COLOR_ACCENT).pack(pady=(15, 10), padx=15, anchor="w")
 
-    btn_guardar_t = tk.Button(card_tema, text="GUARDAR UNIDAD", command=guardar_tema, font=("Segoe UI", 11, "bold"), bg=COLOR_ACCENT, fg=COLOR_BG_DARK, activebackground=COLOR_ACCENT_HOVER, relief="flat", cursor="hand2", bd=0)
-    btn_guardar_t.pack(fill="x", padx=50, pady=(25, 20), ipady=12)
-    aplicar_hover(btn_guardar_t, COLOR_ACCENT, COLOR_ACCENT_HOVER)
+    f_asig = tk.Frame(f_right, bg=COLOR_CARD)
+    f_asig.pack(fill="x", padx=15, pady=5)
 
+    tk.Label(f_asig, text="Alumno:", font=("Segoe UI", 9), bg=COLOR_CARD, fg=COLOR_TEXT_LIGHT).pack(side="left", padx=5)
+    combo_alumnos = ttk.Combobox(f_asig, state="readonly", font=("Segoe UI", 10), width=20)
+    combo_alumnos.pack(side="left", padx=5)
 
-    # =============================================================
-    # PESTAÑA 3: GESTIÓN DE PREGUNTAS
-    # =============================================================
-    tab_preguntas = ttk.Frame(pestanas)
-    pestanas.add(tab_preguntas, text="📝 Agregar Preguntas")
+    tk.Label(f_asig, text="Asignar al Grupo:", font=("Segoe UI", 9), bg=COLOR_CARD, fg=COLOR_TEXT_LIGHT).pack(
+        side="left", padx=5)
+    combo_grupos_asig = ttk.Combobox(f_asig, state="readonly", font=("Segoe UI", 10), width=20)
+    combo_grupos_asig.pack(side="left", padx=5)
 
-    card_preg = tk.Frame(tab_preguntas, bg=COLOR_CARD, bd=0)
-    card_preg.place(relx=0.5, rely=0.5, anchor="center", width=760, height=720)
+    dict_alumnos = {}
+    dict_grupos = {}
 
-    tk.Label(card_preg, text="BANCO DE PREGUNTAS DE EVALUACIÓN", font=("Segoe UI", 16, "bold"), bg=COLOR_CARD, fg=COLOR_TEXT_LIGHT).pack(pady=(30, 15))
-
-    tk.Label(card_preg, text="SELECCIONAR UNIDAD / TEMA", font=("Segoe UI", 8, "bold"), bg=COLOR_CARD, fg=COLOR_TEXT_MUTED, anchor="w").pack(fill="x", padx=40, pady=(0, 5))
-    combo_temas_preg = ttk.Combobox(card_preg, state="readonly", font=("Segoe UI", 10))
-    combo_temas_preg.pack(fill="x", padx=40, pady=(0, 20))
-
-    lista_temas_ids = []
-
-    def actualizar_combo_temas():
-        conn = obtener_conexion()
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, unidad, titulo FROM temas ORDER BY unidad ASC")
-        filas = cursor.fetchall()
-        conn.close()
-
-        lista_temas_ids.clear()
-        opciones = []
-        for f_id, u, t in filas:
-            lista_temas_ids.append(f_id)
-            opciones.append(f"Unidad {u}: {t}")
-
-        combo_temas_preg["values"] = opciones
-        if opciones:
-            combo_temas_preg.current(0)
-
-    # Estilo refinado para las filas de preguntas (Doble Frame horizontal)
-    def crear_fila_input(parent, label_text):
-        f = tk.Frame(parent, bg=COLOR_CARD)
-        f.pack(fill="x", padx=40, pady=6)
-        
-        lbl = tk.Label(f, text=label_text, font=("Segoe UI", 9, "bold"), bg=COLOR_CARD, fg=COLOR_TEXT_MUTED, width=12, anchor="w")
-        lbl.pack(side="left")
-        
-        frame_entry = tk.Frame(f, bg=COLOR_BORDER, bd=0)
-        frame_entry.pack(side="right", expand=True, fill="x")
-        
-        inner_frame = tk.Frame(frame_entry, bg=COLOR_ENTRY_BG, bd=0)
-        inner_frame.pack(fill="both", expand=True, padx=1, pady=1)
-
-        ent = tk.Entry(inner_frame, font=("Segoe UI", 11), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, insertbackground=COLOR_ACCENT, relief="flat", bd=0)
-        ent.pack(fill="x", padx=10, pady=8)
-
-        def on_focus_in(e):
-            frame_entry.config(bg=COLOR_BORDER_FOCUS)
-            lbl.config(fg=COLOR_ACCENT)
-        def on_focus_out(e):
-            frame_entry.config(bg=COLOR_BORDER)
-            lbl.config(fg=COLOR_TEXT_MUTED)
-
-        ent.bind("<FocusIn>", on_focus_in)
-        ent.bind("<FocusOut>", on_focus_out)
-        return ent
-
-    entry_preg = crear_fila_input(card_preg, "Pregunta:")
-    entry_op_a = crear_fila_input(card_preg, "Opción A:")
-    entry_op_b = crear_fila_input(card_preg, "Opción B:")
-    entry_op_c = crear_fila_input(card_preg, "Opción C:")
-    entry_op_d = crear_fila_input(card_preg, "Opción D:")
-
-    # Fila para respuesta correcta
-    f_rc = tk.Frame(card_preg, bg=COLOR_CARD)
-    f_rc.pack(fill="x", padx=40, pady=(15, 10))
-    tk.Label(f_rc, text="Correcta:", font=("Segoe UI", 9, "bold"), bg=COLOR_CARD, fg=COLOR_TEXT_MUTED, width=12, anchor="w").pack(side="left")
-    combo_correcta = ttk.Combobox(f_rc, values=["A", "B", "C", "D"], state="readonly", font=("Segoe UI", 10), width=15)
-    combo_correcta.set("A")
-    combo_correcta.pack(side="left")
-
-    def guardar_pregunta():
-        idx = combo_temas_preg.current()
-        if idx == -1 or not lista_temas_ids:
-            messagebox.showwarning("Atención", "Selecciona un tema primero.")
+    def action_asignar_alum():
+        a_sel = combo_alumnos.get()
+        g_sel = combo_grupos_asig.get()
+        if not a_sel or not g_sel:
+            messagebox.showwarning("Atención", "Selecciona un alumno y un grupo.")
             return
+        asignar_alumno_a_grupo(dict_alumnos[a_sel], dict_grupos[g_sel])
+        messagebox.showinfo("Éxito", f"Alumno {a_sel} asignado al grupo {g_sel}.")
+        actualizar_tabla_grupos()
 
-        tema_id = lista_temas_ids[idx]
-        p = entry_preg.get().strip()
-        a = entry_op_a.get().strip()
-        b = entry_op_b.get().strip()
-        c = entry_op_c.get().strip()
-        d = entry_op_d.get().strip()
-        rc = combo_correcta.get()
+    tk.Button(f_asig, text="ASIGNAR", command=action_asignar_alum, bg=COLOR_ACCENT, fg=COLOR_BG_DARK,
+              font=("Segoe UI", 9, "bold"), bd=0, cursor="hand2").pack(side="left", padx=10, ipadx=10, ipady=4)
 
-        if not p or not a or not b or not c or not d:
-            messagebox.showwarning("Atención", "Completa la pregunta y todas las opciones.")
-            return
+    # Tabla de Grupos
+    tabla_g = ttk.Treeview(f_right, columns=("id", "grupo", "docente"), show="headings", height=12)
+    tabla_g.heading("id", text="ID")
+    tabla_g.heading("grupo", text="Grupo")
+    tabla_g.heading("docente", text="Docente Asignado")
+    tabla_g.column("id", width=50, anchor="center")
+    tabla_g.column("grupo", width=150)
+    tabla_g.column("docente", width=250)
+    tabla_g.pack(fill="both", expand=True, padx=15, pady=15)
 
-        conn = obtener_conexion()
-        cursor = conn.cursor()
-        cursor.execute(
-            """INSERT INTO preguntas (tema_id, pregunta, opcion_a, opcion_b, opcion_c, opcion_d, respuesta_correcta)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (tema_id, p, a, b, c, d, rc)
-        )
-        conn.commit()
-        conn.close()
+    def actualizar_tabla_grupos():
+        for r in tabla_g.get_children():
+            tabla_g.delete(r)
+        for g in obtener_grupos_con_docente():
+            tabla_g.insert("", "end", values=(g[0], g[1], g[2]))
 
-        messagebox.showinfo("Éxito", "Pregunta registrada correctamente.")
-        entry_preg.delete(0, tk.END)
-        entry_op_a.delete(0, tk.END)
-        entry_op_b.delete(0, tk.END)
-        entry_op_c.delete(0, tk.END)
-        entry_op_d.delete(0, tk.END)
+    def actualizar_combos():
+        # Docentes
+        dict_docentes.clear()
+        docentes = obtener_docentes()
+        vals_d = [d[1] for d in docentes]
+        for d in docentes:
+            dict_docentes[d[1]] = d[0]
+        combo_docentes["values"] = vals_d
+        if vals_d: combo_docentes.set(vals_d[0])
 
-    btn_guardar_p = tk.Button(card_preg, text="GUARDAR PREGUNTA", command=guardar_pregunta, font=("Segoe UI", 11, "bold"), bg=COLOR_ACCENT, fg=COLOR_BG_DARK, activebackground=COLOR_ACCENT_HOVER, relief="flat", cursor="hand2", bd=0)
-    btn_guardar_p.pack(fill="x", padx=40, pady=(20, 15), ipady=12)
-    aplicar_hover(btn_guardar_p, COLOR_ACCENT, COLOR_ACCENT_HOVER)
+        # Alumnos
+        dict_alumnos.clear()
+        alumnos = obtener_alumnos_sin_grupo()
+        vals_a = [a[1] for a in alumnos]
+        for a in alumnos:
+            dict_alumnos[a[1]] = a[0]
+        combo_alumnos["values"] = vals_a
+        if vals_a: combo_alumnos.set(vals_a[0])
 
-    actualizar_combo_temas()
+        # Grupos
+        dict_grupos.clear()
+        grupos = obtener_grupos_con_docente()
+        vals_g = [g[1] for g in grupos]
+        for g in grupos:
+            dict_grupos[g[1]] = g[0]
+        combo_grupos_asig["values"] = vals_g
+        if vals_g: combo_grupos_asig.set(vals_g[0])
 
-    # Botón inferior para Cerrar Sesión (Ahora con hover rojo intenso)
-    btn_cerrar = tk.Button(
-        ventana, 
-        text="CERRAR SESIÓN DE ADMINISTRADOR", 
-        command=ventana.destroy, 
-        font=("Segoe UI", 10, "bold"), 
-        bg=COLOR_DANGER, 
-        fg=COLOR_TEXT_LIGHT, 
-        activebackground=COLOR_DANGER_HOVER, 
-        activeforeground=COLOR_TEXT_LIGHT,
-        relief="flat", 
-        cursor="hand2",
-        bd=0
-    )
-    btn_cerrar.pack(fill="x", padx=40, pady=(0, 25), ipady=12)
-    aplicar_hover(btn_cerrar, COLOR_DANGER, COLOR_DANGER_HOVER)
+        actualizar_tabla_grupos()
 
-    # Atajo global de teclado para salir de pantalla completa con ESC
+    actualizar_combos()
     ventana.bind("<Escape>", lambda e: ventana.destroy())
-
-    # Ejecutar animación de entrada
-    ventana.after(100, animar_entrada)
-
     ventana.mainloop()
