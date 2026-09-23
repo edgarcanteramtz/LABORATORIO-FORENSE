@@ -3,8 +3,12 @@ import sqlite3
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-DIR_PRINCIPAL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RUTA_DB = os.path.join(DIR_PRINCIPAL, "database", "lab_forense.db")
+# Intentar importar la ruta de DB centralizada o calcularla en su defecto
+try:
+    from database.db_manager import DB_PATH as RUTA_DB
+except ImportError:
+    DIR_PRINCIPAL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    RUTA_DB = os.path.join(DIR_PRINCIPAL, "database", "lab_forense.db")
 
 # Importación de herramientas
 try:
@@ -43,11 +47,54 @@ COLOR_CARD = "#090D18"
 COLOR_ACCENT = "#00F0FF"
 COLOR_ACCENT_HOVER = "#00C4D4"
 COLOR_TEXT_LIGHT = "#FFFFFF"
-COLOR_TEXT_MUTED = "#64748B"
+COLOR_TEXT_MUTED = "#94A3B8"
 COLOR_ENTRY_BG = "#0E1524"
 COLOR_BORDER = "#1E293B"
 COLOR_DANGER = "#E63946"
 COLOR_DANGER_HOVER = "#D62828"
+
+# ==========================================
+# CONTENIDO TEÓRICO COMPLETO DETALLADO
+# ==========================================
+TEORIA_DETALLADA = {
+    1: [
+        ("1.1 Conceptos generales",
+         "La informática forense es la disciplina científica y pericial dedicada a la identificación, preservación, extracción, análisis y presentación de evidencias digitales almacenadas en dispositivos electrónicos.\n\n"
+         "• Evidencia Digital: Cualquier información en formato binario que pueda ser utilizada para probar un hecho en un proceso judicial o administrativo.\n"
+         "• Cadena de Custodia: Proceso riguroso que documenta cronológicamente la extracción, custodia, control, transferencia, análisis y disposición de la evidencia física o digital.\n"
+         "• Hash de Integridad: Firma matemática unívoca (MD5, SHA-256) que garantiza que un archivo no ha sufrido modificaciones desde su extracción."),
+
+        ("1.2 Importancia",
+         "En el contexto actual de digitalización masiva y cibercrimen, la informática forense cumple un papel determinante:\n\n"
+         "1. Garantizar la Inadmisibilidad de Pruebas Alteradas: Permite validar legalmente los hallazgos ante tribunales.\n"
+         "2. Respuesta a Incidentes de Seguridad: Ayuda a las organizaciones a determinar la causa raíz, el alcance y el impacto de un ataque informático (ransomware, fuga de datos, accesos no autorizados).\n"
+         "3. Recuperación de Evidencia Borrada o Cifrada: Permite reconstruir eventos delictivos a partir de fragmentos en memoria RAM, disco no asignado o metadatos escondidos."),
+
+        ("1.3 Situación actual",
+         "El panorama contemporáneo de la informática forense enfrenta múltiples retos emergentes:\n\n"
+         "• Entornos en la Nube: La dispersión geográfica de los datos dificulta la adquisición física de los soportes.\n"
+         "• Cifrado de Disco Completo (BitLocker, LUKS): Requiere técnicas de análisis en vivo (Live Forensics) y captura de memoria volátil antes del apagado del equipo.\n"
+         "• Internet de las Cosas (IoT) y Dispositivos Móviles: Multiplicación de fuentes de evidencia con formatos propietarios y sistemas operativos heterogéneos."),
+
+        ("1.4 Principios fundamentales",
+         "Los pilares éticos y procesales que rigen cualquier investigación forense son:\n\n"
+         "1. Principio de Mínima Intervención: Trabajar siempre sobre imágenes forenses (copias bit a bit) y nunca sobre la evidencia original.\n"
+         "2. Principio de Locard en el Ámbito Digital: Todo contacto deja un rastro. Cualquier interacción con un sistema informático modifica de alguna forma su estado (logs, registros, marcas de tiempo).\n"
+         "3. Auditabilidad y Repetibilidad: Los procedimientos aplicados por un perito deben estar documentados de forma tal que otro especialista pueda replicarlos y obtener exactamente los mismos resultados."),
+
+        ("1.5 Estándares y Normativas",
+         "Las investigaciones deben alinearse a marcos regulatorios y normas técnicas reconocidas internacionalmente para asegurar su validez procesal."),
+
+        ("1.5.1 Nivel nacional",
+         "• Código Nacional de Procedimientos Penales (CNPP): Contempla los requisitos para la incorporación de prueba documental y técnica en juicios oralidades.\n"
+         "• Protocolos de la Guardia Nacional / CERT MX: Guías técnicas para el manejo y aseguramiento de indicios digitales en la escena del delito."),
+
+        ("1.5.2 Nivel internacional",
+         "• ISO/IEC 27037: Estándar internacional con directrices para la identificación, recolección, adquisición y preservación de evidencia digital.\n"
+         "• RFC 3227: Guía de mejores prácticas para la recolección y archivo de evidencia volátil (memoria RAM, conexiones de red activas).\n"
+         "• NIST SP 800-86: Guía del Instituto Nacional de Estándares y Tecnología de EE. UU. para la integración de técnicas forenses en la respuesta a incidentes.")
+    ]
+}
 
 
 def aplicar_hover(boton, color_normal, color_hover):
@@ -85,6 +132,22 @@ def guardar_calificacion(usuario, tema_id, puntaje):
                        (user[0], tema_id, puntaje))
         conexion.commit()
     conexion.close()
+
+
+def obtener_calificaciones_usuario(usuario):
+    conexion = sqlite3.connect(RUTA_DB)
+    cursor = conexion.cursor()
+    cursor.execute("""
+                   SELECT t.unidad, t.titulo, c.puntaje, c.fecha
+                   FROM calificaciones c
+                            JOIN usuarios u ON c.alumno_id = u.id
+                            JOIN temas t ON c.tema_id = t.id
+                   WHERE u.nombre_usuario = ?
+                   ORDER BY c.fecha DESC
+                   """, (usuario,))
+    registros = cursor.fetchall()
+    conexion.close()
+    return registros
 
 
 def abrir_panel_alumno(usuario):
@@ -155,13 +218,26 @@ def abrir_panel_alumno(usuario):
     tab_teoria = ttk.Frame(sub_pestanas)
     sub_pestanas.add(tab_teoria, text="📖 1. Explicación")
 
-    area_teoria = tk.Text(tab_teoria, wrap="word", font=("Segoe UI", 11), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT,
-                          relief="flat", bd=0, padx=20, pady=20)
-    area_teoria.pack(fill="both", expand=True, padx=15, pady=15)
+    frame_teoria_container = tk.Frame(tab_teoria, bg=COLOR_ENTRY_BG)
+    frame_teoria_container.pack(fill="both", expand=True, padx=15, pady=15)
 
-    # --- PASO 2: CUESTIONARIO DE 10 PREGUNTAS ---
+    scroll_teoria = ttk.Scrollbar(frame_teoria_container)
+    scroll_teoria.pack(side="right", fill="y")
+
+    area_teoria = tk.Text(frame_teoria_container, wrap="word", font=("Segoe UI", 11), bg=COLOR_ENTRY_BG,
+                          fg=COLOR_TEXT_LIGHT,
+                          relief="flat", bd=0, padx=20, pady=20, yscrollcommand=scroll_teoria.set)
+    area_teoria.pack(side="left", fill="both", expand=True)
+    scroll_teoria.config(command=area_teoria.yview)
+
+    # Configuración de etiquetas de formato rico para el área de teoría
+    area_teoria.tag_configure("subtitulo", font=("Segoe UI", 12, "bold"), foreground=COLOR_ACCENT)
+    area_teoria.tag_configure("subsubtitulo", font=("Segoe UI", 11, "bold"), foreground="#00C4D4")
+    area_teoria.tag_configure("cuerpo", font=("Segoe UI", 10), foreground=COLOR_TEXT_LIGHT)
+
+    # --- PASO 2: CUESTIONARIO DE PREGUNTAS ---
     tab_quiz = ttk.Frame(sub_pestanas)
-    sub_pestanas.add(tab_quiz, text="📝 2. Cuestionario (10 Preguntas)")
+    sub_pestanas.add(tab_quiz, text="📝 2. Cuestionario")
 
     frame_scroll_quiz = tk.Canvas(tab_quiz, bg=COLOR_CARD, highlightthickness=0)
     scrollbar_quiz = ttk.Scrollbar(tab_quiz, orient="vertical", command=frame_scroll_quiz.yview)
@@ -184,6 +260,30 @@ def abrir_panel_alumno(usuario):
 
     container_practica = tk.Frame(tab_practica, bg=COLOR_CARD)
     container_practica.pack(fill="both", expand=True, padx=15, pady=15)
+
+    # --- PASO 4: HISTORIAL DE CALIFICACIONES ---
+    tab_historial = ttk.Frame(sub_pestanas)
+    sub_pestanas.add(tab_historial, text="📊 4. Mis Calificaciones")
+
+    tabla_historial = ttk.Treeview(tab_historial, columns=("u", "t", "p", "f"), show="headings", height=10)
+    tabla_historial.heading("u", text="Unidad")
+    tabla_historial.heading("t", text="Título del Tema")
+    tabla_historial.heading("p", text="Calificación")
+    tabla_historial.heading("f", text="Fecha de Realización")
+    tabla_historial.column("u", width=80, anchor="center")
+    tabla_historial.column("t", width=250, anchor="w")
+    tabla_historial.column("p", width=100, anchor="center")
+    tabla_historial.column("f", width=180, anchor="center")
+    tabla_historial.pack(fill="both", expand=True, padx=20, pady=20)
+
+    def actualizar_tabla_historial():
+        for item in tabla_historial.get_children():
+            tabla_historial.delete(item)
+        registros = obtener_calificaciones_usuario(usuario)
+        for r in registros:
+            tabla_historial.insert("", "end", values=(f"Unidad {r[0]}", r[1], f"{r[2]} / 100", r[3]))
+
+    actualizar_tabla_historial()
 
     # Variables globales de estado del tema activo
     tema_activo = {"id": None, "unidad": None, "titulo": ""}
@@ -346,10 +446,21 @@ def abrir_panel_alumno(usuario):
 
         lbl_titulo_tema.config(text=f"UNIDAD {t[1]}: {t[2]}")
 
-        # 1. Cargar Teoría
+        # 1. Cargar Teoría Formateada con Subtemas
         area_teoria.config(state="normal")
         area_teoria.delete("1.0", tk.END)
-        area_teoria.insert("1.0", t[3] if t[3] else "Contenido teórico en elaboración.")
+
+        num_unidad = t[1]
+        if num_unidad in TEORIA_DETALLADA:
+            for sub_titulo, sub_contenido in TEORIA_DETALLADA[num_unidad]:
+                tag = "subsubtitulo" if len(sub_titulo.split(" ")[0].split(".")) > 2 else "subtitulo"
+                area_teoria.insert(tk.END, f"{sub_titulo}\n", tag)
+                area_teoria.insert(tk.END, f"{sub_contenido}\n\n", "cuerpo")
+        else:
+            # Si es otra unidad, renderizar el texto que viene de la base de datos
+            contenido_bd = t[3] if t[3] else "Contenido teórico en elaboración."
+            area_teoria.insert(tk.END, contenido_bd, "cuerpo")
+
         area_teoria.config(state="disabled")
 
         # 2. Cargar Cuestionario
@@ -384,12 +495,21 @@ def abrir_panel_alumno(usuario):
                         anchor="w", padx=15, pady=2)
 
             def evaluar():
+                sin_responder = sum(1 for p in preguntas_actuales if not respuestas_usuario[p[0]].get())
+                if sin_responder > 0:
+                    if not messagebox.askyesno("Preguntas pendientes",
+                                               f"Tienes {sin_responder} pregunta(s) sin responder. ¿Deseas enviar el cuestionario de todos modos?"):
+                        return
+
                 correctas = sum(1 for p in preguntas_actuales if respuestas_usuario[p[0]].get() == p[6])
                 total = len(preguntas_actuales)
+                if total == 0:
+                    return
                 puntaje = int((correctas / total) * 100)
                 guardar_calificacion(usuario, tema_activo["id"], puntaje)
                 messagebox.showinfo("Evaluación Finalizada",
                                     f"Tema: Unidad {tema_activo['unidad']}\nAciertos: {correctas}/{total}\nCalificación: {puntaje}/100")
+                actualizar_tabla_historial()
 
             btn_enviar = tk.Button(scrollable_quiz_inner, text="ENVIAR RESPUESTAS DEL TEMA", command=evaluar,
                                    font=("Segoe UI", 10, "bold"), bg=COLOR_ACCENT, fg=COLOR_BG_DARK, relief="flat",
