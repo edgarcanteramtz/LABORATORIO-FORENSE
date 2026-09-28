@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import tkinter as tk
+import re
 from tkinter import filedialog, messagebox, ttk
 
 # Intentar importar la ruta de DB centralizada o calcularla en su defecto
@@ -450,16 +451,30 @@ def abrir_panel_alumno(usuario):
         area_teoria.config(state="normal")
         area_teoria.delete("1.0", tk.END)
 
+        contenido_bd = t[3]
         num_unidad = t[1]
-        if num_unidad in TEORIA_DETALLADA:
+
+        # Si el administrador guardó contenido en la base de datos, lo mostramos
+        if contenido_bd and contenido_bd.strip():
+            for linea in contenido_bd.split('\n'):
+                # Detectar automáticamente si la línea empieza con un número como "3.1" o "4.2.1"
+                if re.match(r'^\d+\.\d+', linea.strip()):
+                    # Si tiene dos puntos (ej 1.5.1), es un sub-subtítulo (azul claro), sino subtítulo principal (cian)
+                    tag = "subsubtitulo" if len(linea.strip().split(" ")[0].split(".")) > 2 else "subtitulo"
+                    area_teoria.insert(tk.END, f"{linea}\n", tag)
+                else:
+                    area_teoria.insert(tk.END, f"{linea}\n", "cuerpo")
+
+        # Si la BD está vacía, intentamos cargar la unidad hardcodeada (como la 1)
+        elif num_unidad in TEORIA_DETALLADA:
             for sub_titulo, sub_contenido in TEORIA_DETALLADA[num_unidad]:
                 tag = "subsubtitulo" if len(sub_titulo.split(" ")[0].split(".")) > 2 else "subtitulo"
                 area_teoria.insert(tk.END, f"{sub_titulo}\n", tag)
                 area_teoria.insert(tk.END, f"{sub_contenido}\n\n", "cuerpo")
         else:
-            # Si es otra unidad, renderizar el texto que viene de la base de datos
-            contenido_bd = t[3] if t[3] else "Contenido teórico en elaboración."
-            area_teoria.insert(tk.END, contenido_bd, "cuerpo")
+            area_teoria.insert(tk.END,
+                               "Contenido teórico en elaboración. El administrador aún no ha subido información para esta unidad.\n",
+                               "cuerpo")
 
         area_teoria.config(state="disabled")
 
