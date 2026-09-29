@@ -137,3 +137,61 @@ def cargar_datos_iniciales():
 if __name__ == "__main__":
     inicializar_base_datos()
     cargar_datos_iniciales()
+
+
+    import sqlite3
+
+class DBManager:
+    def __init__(self, db_path="database/lab_forense.db"):
+        self.conn = sqlite3.connect(db_path)
+        self.cursor = self.conn.cursor()
+        self.crear_tabla_practicas()
+        self.poblar_practicas()
+
+    def crear_tabla_practicas(self):
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS practicas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                unidad INTEGER,
+                numero_practica INTEGER,
+                titulo TEXT,
+                descripcion TEXT
+            )
+        ''')
+        self.conn.commit()
+
+    def poblar_practicas(self):
+        # Verifica si la tabla ya tiene datos para no duplicarlos
+        self.cursor.execute('SELECT COUNT(*) FROM practicas')
+        if self.cursor.fetchone()[0] == 0:
+            lista_practicas = [
+                # Unidad 1
+                (1, 1, 'Reto de Trivia "Principios Forenses"', 'Clasifica decisiones basadas en principios forenses.'),
+                (1, 2, 'Simulador de Cumplimiento (ISO/IEC 27037)', 'Selecciona directrices para el manejo de dispositivos.'),
+                (1, 3, 'Crucigrama de Terminología', 'Resuelve conceptos de evidencia digital y volatilidad.'),
+                (1, 4, 'Análisis de Caso Real', 'Identifica violaciones en la recolección de evidencia.'),
+                # Unidad 2
+                (2, 1, 'Laboratorio de Identificación', 'Etiqueta evidencia crítica en una red comprometida.'),
+                (2, 2, 'Generador y Verificador de Hashes', 'Calcula huellas digitales (MD5/SHA-256) de evidencias.'),
+                (2, 3, 'Llenado de Cadena de Custodia', 'Rellena el formato legal de recolección.'),
+                (2, 4, 'Constructor de Informes', 'Ordena las secciones de un informe pericial.'),
+                # Unidad 3
+                (3, 1, 'Cazador de Metadatos (ExifTool)', 'Extrae metadatos y GPS de una imagen.'),
+                (3, 2, 'Mini-Reto de Tráfico (Wireshark)', 'Filtra un archivo .pcap para buscar contraseñas.'),
+                (3, 3, 'File Carving (Recuperación)', 'Recupera fragmentos de archivos eliminados.'),
+                (3, 4, 'Análisis de BD SQLite', 'Ejecuta consultas para extraer chats eliminados.'),
+                # Unidad 4
+                (4, 1, 'Simulador de Triage', 'Toma decisiones críticas ante un incidente en curso.'),
+                (4, 2, 'Análisis de Eventos Windows', 'Busca códigos de evento para armar una cronología.'),
+                (4, 3, 'Línea de Tiempo (Timeline)', 'Ordena logs desordenados de un ataque.'),
+                (4, 4, 'Atribución (IoC)', 'Empareja indicadores de compromiso con tácticas de ataque.')
+            ]
+            self.cursor.executemany('''
+                INSERT INTO practicas (unidad, numero_practica, titulo, descripcion) 
+                VALUES (?, ?, ?, ?)
+            ''', lista_practicas)
+            self.conn.commit()
+
+    def obtener_practicas_por_unidad(self, unidad):
+        self.cursor.execute('SELECT id, numero_practica, titulo, descripcion FROM practicas WHERE unidad = ?', (unidad,))
+        return self.cursor.fetchall()

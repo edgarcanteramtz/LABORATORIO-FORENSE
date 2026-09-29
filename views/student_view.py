@@ -17,7 +17,6 @@ try:
 except ImportError:
     import hashlib
 
-
     def generar_hash_archivo(ruta, algoritmo="sha256"):
         hasher = hashlib.md5() if algoritmo == "md5" else (hashlib.sha1() if algoritmo == "sha1" else hashlib.sha256())
         try:
@@ -39,6 +38,13 @@ try:
 except ImportError:
     def generar_reporte_txt(tipo, user, datos):
         return "reporte.txt", "Error: Módulo report_generator no encontrado."
+
+# --- IMPORTACIÓN DE LAS PRÁCTICAS DE LA UNIDAD 1 ---
+try:
+    from tools.practicas_u1 import cargar_practica_u1_p1, cargar_practica_u1_p2, cargar_practica_u1_p3, cargar_practica_u1_p4
+except ImportError:
+    cargar_practica_u1_p1 = cargar_practica_u1_p2 = cargar_practica_u1_p3 = cargar_practica_u1_p4 = None
+# ---------------------------------------------------
 
 # ==========================================
 # PALETA DE COLORES "HUD FORENSIC / HIGH-TECH"
@@ -152,7 +158,8 @@ def obtener_calificaciones_usuario(usuario):
 
 
 def abrir_panel_alumno(usuario):
-    ventana = tk.Tk()
+    # CORRECCIÓN: Se cambió de tk.Tk() a tk.Toplevel() para evitar conflictos de bucle principal
+    ventana = tk.Toplevel()
     ventana.title(f"LAB VISUAL FORENSE - Módulo Guiado ({usuario})")
     ventana.attributes('-fullscreen', True)
     ventana.configure(bg=COLOR_BG_DARK)
@@ -255,9 +262,12 @@ def abrir_panel_alumno(usuario):
     frame_scroll_quiz.pack(side="left", fill="both", expand=True, padx=15, pady=15)
     scrollbar_quiz.pack(side="right", fill="y", pady=15)
 
-    # --- PASO 3: PRÁCTICA GUIADA ---
+    # --- PASO 3: PRÁCTICA APLICADA (ACTUALIZADO CON MENÚ) ---
     tab_practica = ttk.Frame(sub_pestanas)
     sub_pestanas.add(tab_practica, text="🛠️ 3. Práctica Aplicada")
+
+    menu_practicas = tk.Frame(tab_practica, bg=COLOR_CARD)
+    menu_practicas.pack(fill="x", padx=15, pady=(15, 0))
 
     container_practica = tk.Frame(tab_practica, bg=COLOR_CARD)
     container_practica.pack(fill="both", expand=True, padx=15, pady=15)
@@ -301,7 +311,7 @@ def abrir_panel_alumno(usuario):
         card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
         card.pack(fill="both", expand=True, padx=20, pady=20)
 
-        tk.Label(card, text="PRÁCTICA: VERIFICACIÓN DE HASHES Y CADENA DE CUSTODIA", font=("Segoe UI", 12, "bold"),
+        tk.Label(card, text="PRÁCTICA 2.2: VERIFICACIÓN DE HASHES Y CADENA DE CUSTODIA", font=("Segoe UI", 12, "bold"),
                  bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 15))
 
         ruta_var = tk.StringVar()
@@ -364,7 +374,7 @@ def abrir_panel_alumno(usuario):
         card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
         card.pack(fill="both", expand=True, padx=20, pady=20)
 
-        tk.Label(card, text="PRÁCTICA: EXTRACTOR DE METADATOS Y CABECERAS EXIF", font=("Segoe UI", 12, "bold"),
+        tk.Label(card, text="PRÁCTICA 3.1: EXTRACTOR DE METADATOS Y CABECERAS EXIF", font=("Segoe UI", 12, "bold"),
                  bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(15, 10))
 
         ruta_img_var = tk.StringVar()
@@ -430,6 +440,253 @@ def abrir_panel_alumno(usuario):
         btn_e = tk.Button(card, text="📄 EXPORTAR REPORTE EXIF", command=exportar, bg=COLOR_BORDER, fg=COLOR_ACCENT,
                           font=("Segoe UI", 9, "bold"), bd=0, cursor="hand2")
         btn_e.pack(pady=(0, 10), ipady=6, ipadx=15)
+
+    def cargar_practica_windows_logs(parent):
+        for w in parent.winfo_children():
+            w.destroy()
+
+        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card.pack(fill="both", expand=True, padx=20, pady=20)
+
+        tk.Label(card, text="PRÁCTICA 4.2: ANÁLISIS DE REGISTROS DE EVENTOS DE WINDOWS", font=("Segoe UI", 12, "bold"),
+                 bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(15, 10))
+
+        instruccion = (
+            "Analiza el fragmento de registros de eventos extraídos de la máquina comprometida.\n"
+            "Identifica el Event ID clave que revela la alteración de la seguridad o persistencia del atacante."
+        )
+        tk.Label(card, text=instruccion, font=("Segoe UI", 10), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, justify="left", wraplength=650).pack(pady=5)
+
+        txt_logs = tk.Text(card, height=8, width=75, bg=COLOR_CARD, fg=COLOR_TEXT_LIGHT, bd=0, font=("Consolas", 9))
+        txt_logs.pack(pady=10)
+        
+        logs_simulados = (
+            "[10:12:04] Event ID: 4624 - An account was successfully logged on. User: SYSTEM\n"
+            "[10:15:22] Event ID: 4625 - An account failed to log on. User: Administrator (Password incorrect)\n"
+            "[10:15:28] Event ID: 4625 - An account failed to log on. User: Administrator (Password incorrect)\n"
+            "[10:20:01] Event ID: 4720 - A user account was created. TargetAccount: 'backdoor_admin'\n"
+            "[10:25:40] Event ID: 4672 - Special privileges assigned to new logon. User: backdoor_admin\n"
+        )
+        txt_logs.insert(tk.END, logs_simulados)
+        txt_logs.config(state="disabled")
+
+        tk.Label(card, text="¿Cuál es el Event ID crítico que evidencia la creación de una cuenta no autorizada?", font=("Segoe UI", 10, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=5)
+
+        var_respuesta = tk.StringVar(value="")
+        opciones = [
+            ("4624 - Inicio de sesión exitoso", "4624"),
+            ("4625 - Fallo de inicio de sesión masivo", "4625"),
+            ("4720 - Creación de una cuenta de usuario", "4720"),
+            ("4672 - Asignación de privilegios especiales", "4672")
+        ]
+
+        for texto, val in opciones:
+            tk.Radiobutton(card, text=texto, variable=var_respuesta, value=val, font=("Segoe UI", 9),
+                           bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, selectcolor=COLOR_CARD,
+                           activebackground=COLOR_ENTRY_BG, activeforeground=COLOR_ACCENT, cursor="hand2").pack(anchor="w", padx=40, pady=2)
+
+        def verificar():
+            seleccion = var_respuesta.get()
+            if seleccion == "4720":
+                messagebox.showinfo("¡Correcto!", "¡Excelente análisis forense! El Event ID 4720 confirma que se creó la cuenta 'backdoor_admin', evidenciando el mecanismo de persistencia del atacante.")
+            elif seleccion == "":
+                messagebox.showwarning("Atención", "Por favor selecciona una opción de la lista.")
+            else:
+                messagebox.showerror("Incorrecto", "Ese evento muestra otra actividad, pero no es el indicador principal de la creación de la cuenta maliciosa.")
+
+        btn_verificar = tk.Button(card, text="VERIFICAR HALLAZGO", command=verificar, bg=COLOR_ACCENT, fg=COLOR_BG_DARK,
+                                  font=("Segoe UI", 9, "bold"), bd=0, cursor="hand2")
+        btn_verificar.pack(pady=15, ipady=6, ipadx=15)
+
+    # -------------------------------------------------------------
+    # CONSTRUCTORES DE LAS NUEVAS PRÁCTICAS (U2, U3, U4)
+    # -------------------------------------------------------------
+    def cargar_practica_u2_p1(parent):
+        for w in parent.winfo_children(): w.destroy()
+        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card.pack(fill="both", expand=True, padx=20, pady=20)
+        tk.Label(card, text="PRÁCTICA 2.1: IDENTIFICACIÓN DE EVIDENCIA Y VOLATILIDAD", font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 15))
+        tk.Label(card, text="Escenario: Llegas a una escena y encuentras una PC encendida, un router activo y varias memorias USB.", font=("Segoe UI", 10, "italic"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).pack(pady=5)
+        tk.Label(card, text="Según el RFC 3227, ¿qué evidencia debes recolectar y documentar PRIMERO por su alta volatilidad?", font=("Segoe UI", 10, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=15)
+        
+        var_resp = tk.StringVar(value="")
+        for t, v in [("A) El disco duro externo guardado en un cajón.", "C"), ("B) La memoria RAM de la PC encendida.", "A"), ("C) Las memorias USB desconectadas sobre la mesa.", "B")]:
+            tk.Radiobutton(card, text=t, variable=var_resp, value=v, font=("Segoe UI", 9), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, selectcolor=COLOR_CARD, activebackground=COLOR_ENTRY_BG, activeforeground=COLOR_ACCENT).pack(anchor="w", padx=100, pady=5)
+        
+        def verificar():
+            if var_resp.get() == "A": messagebox.showinfo("Correcto", "Excelente. La RAM es altamente volátil y debe volcarse antes de que el equipo pierda energía.")
+            elif not var_resp.get(): messagebox.showwarning("Aviso", "Selecciona una opción.")
+            else: messagebox.showerror("Incorrecto", "Revisa el orden de volatilidad del RFC 3227. Esa evidencia es persistente.")
+        tk.Button(card, text="VERIFICAR", command=verificar, bg=COLOR_ACCENT, bd=0, font=("Segoe UI", 9, "bold")).pack(pady=20, ipadx=15, ipady=5)
+
+    def cargar_practica_u2_p3(parent):
+        for w in parent.winfo_children(): w.destroy()
+        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card.pack(fill="both", expand=True, padx=20, pady=20)
+        tk.Label(card, text="PRÁCTICA 2.3: REGISTRO DE CADENA DE CUSTODIA", font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 15))
+        tk.Label(card, text="Completa el formulario legal básico para preservar una evidencia digital:", font=("Segoe UI", 10), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=5)
+        
+        frame_form = tk.Frame(card, bg=COLOR_ENTRY_BG)
+        frame_form.pack(pady=10)
+        
+        tk.Label(frame_form, text="Nombre del Recolector:", bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).grid(row=0, column=0, sticky="e", pady=5, padx=5)
+        e1 = tk.Entry(frame_form, bg=COLOR_CARD, fg=COLOR_TEXT_LIGHT, bd=0, width=30)
+        e1.grid(row=0, column=1, pady=5, ipady=3)
+        
+        tk.Label(frame_form, text="Descripción del Dispositivo:", bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).grid(row=1, column=0, sticky="e", pady=5, padx=5)
+        e2 = tk.Entry(frame_form, bg=COLOR_CARD, fg=COLOR_TEXT_LIGHT, bd=0, width=30)
+        e2.grid(row=1, column=1, pady=5, ipady=3)
+        
+        tk.Label(frame_form, text="Firma Hash (SHA-256):", bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).grid(row=2, column=0, sticky="e", pady=5, padx=5)
+        e3 = tk.Entry(frame_form, bg=COLOR_CARD, fg=COLOR_TEXT_LIGHT, bd=0, width=30)
+        e3.grid(row=2, column=1, pady=5, ipady=3)
+
+        def generar():
+            if not e1.get() or not e2.get() or not e3.get(): messagebox.showwarning("Error", "Todos los campos de la Cadena de Custodia son obligatorios legalmente.")
+            else: messagebox.showinfo("Éxito", f"Cadena de Custodia generada correctamente para el dispositivo:\n{e2.get()}")
+        tk.Button(card, text="GENERAR FORMATO LEGAL", command=generar, bg=COLOR_ACCENT, bd=0, font=("Segoe UI", 9, "bold")).pack(pady=20, ipadx=15, ipady=5)
+
+    def cargar_practica_u2_p4(parent):
+        for w in parent.winfo_children(): w.destroy()
+        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card.pack(fill="both", expand=True, padx=20, pady=20)
+        tk.Label(card, text="PRÁCTICA 2.4: ESTRUCTURA DEL INFORME PERICIAL", font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 15))
+        tk.Label(card, text="Identifica el orden metodológico correcto de las secciones de un informe técnico pericial:", font=("Segoe UI", 10), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=15)
+        
+        var_resp = tk.StringVar(value="")
+        opciones = [
+            ("A) Conclusiones -> Objetivos -> Hallazgos -> Metodología", "A"),
+            ("B) Objetivos -> Metodología -> Hallazgos -> Conclusiones", "B"),
+            ("C) Hallazgos -> Conclusiones -> Objetivos -> Metodología", "C")
+        ]
+        for t, v in opciones:
+            tk.Radiobutton(card, text=t, variable=var_resp, value=v, font=("Segoe UI", 9), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, selectcolor=COLOR_CARD, activebackground=COLOR_ENTRY_BG, activeforeground=COLOR_ACCENT).pack(anchor="w", padx=100, pady=5)
+        
+        def verificar():
+            if var_resp.get() == "B": messagebox.showinfo("Correcto", "¡Exacto! El informe debe iniciar planteando el objetivo, explicar el método usado, mostrar la evidencia encontrada y concluir lógicamente.")
+            elif not var_resp.get(): messagebox.showwarning("Aviso", "Selecciona una opción.")
+            else: messagebox.showerror("Incorrecto", "Un informe pericial perdería validez si concluye antes de explicar la metodología y los hallazgos.")
+        tk.Button(card, text="VALIDAR ESTRUCTURA", command=verificar, bg=COLOR_ACCENT, bd=0, font=("Segoe UI", 9, "bold")).pack(pady=20, ipadx=15, ipady=5)
+
+    def cargar_practica_u3_p2(parent):
+        for w in parent.winfo_children(): w.destroy()
+        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card.pack(fill="both", expand=True, padx=20, pady=20)
+        tk.Label(card, text="PRÁCTICA 3.2: ANÁLISIS DE TRÁFICO (WIRESHARK SIMULATOR)", font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(15, 5))
+        tk.Label(card, text="Analiza el siguiente volcado de tráfico HTTP sin cifrar y encuentra la contraseña filtrada.", font=("Segoe UI", 10), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).pack(pady=5)
+        
+        txt_logs = tk.Text(card, height=6, width=70, bg=COLOR_CARD, fg=COLOR_TEXT_LIGHT, bd=0, font=("Consolas", 9))
+        txt_logs.pack(pady=10)
+        txt_logs.insert(tk.END, "Frame 41: GET /index.html HTTP/1.1\nFrame 42: POST /login.php HTTP/1.1\n          Host: 192.168.1.10\n          Form item: 'username' = 'admin'\n          Form item: 'password' = 's3cr3t_f0r3ns1c'\nFrame 43: HTTP/1.1 302 Found")
+        txt_logs.config(state="disabled")
+        
+        tk.Label(card, text="Ingresa la contraseña descubierta:", font=("Segoe UI", 10, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=5)
+        e_pass = tk.Entry(card, bg=COLOR_CARD, fg=COLOR_ACCENT, bd=0, width=30, justify="center", font=("Consolas", 11))
+        e_pass.pack(ipady=4, pady=5)
+        
+        def verificar():
+            if e_pass.get().strip() == "s3cr3t_f0r3ns1c": messagebox.showinfo("Correcto", "¡Contraseña interceptada con éxito! Esto demuestra el peligro de usar HTTP sin cifrar.")
+            else: messagebox.showerror("Incorrecto", "Esa no es la contraseña filtrada en el paquete POST.")
+        tk.Button(card, text="EXTRAER DATO", command=verificar, bg=COLOR_ACCENT, bd=0, font=("Segoe UI", 9, "bold")).pack(pady=15, ipadx=15, ipady=5)
+
+    def cargar_practica_u3_p3(parent):
+        for w in parent.winfo_children(): w.destroy()
+        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card.pack(fill="both", expand=True, padx=20, pady=20)
+        tk.Label(card, text="PRÁCTICA 3.3: TALLER DE FILE CARVING", font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 15))
+        tk.Label(card, text="Para recuperar un archivo de imagen borrado desde el espacio no asignado (slack space),\ndebes buscar su Firma Hexadecimal (Magic Number) en la cabecera.", font=("Segoe UI", 10, "italic"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).pack(pady=5)
+        tk.Label(card, text="¿Cuál es el Magic Number característico de un archivo JPEG?", font=("Segoe UI", 10, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=15)
+        
+        var_resp = tk.StringVar(value="")
+        for t, v in [("A) 4D 5A (Cabecera MZ - Ejecutable Windows)", "A"), ("B) 25 50 44 46 (Cabecera %PDF - Documento)", "B"), ("C) FF D8 FF E0 (Cabecera JPEG Standard)", "C")]:
+            tk.Radiobutton(card, text=t, variable=var_resp, value=v, font=("Consolas", 10), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, selectcolor=COLOR_CARD, activebackground=COLOR_ENTRY_BG, activeforeground=COLOR_ACCENT).pack(anchor="w", padx=100, pady=5)
+        
+        def verificar():
+            if var_resp.get() == "C": messagebox.showinfo("Correcto", "¡File Carving Exitoso! FF D8 FF E0 marca el inicio de una imagen JPEG recuperable.")
+            elif not var_resp.get(): messagebox.showwarning("Aviso", "Selecciona una firma hexadecimal.")
+            else: messagebox.showerror("Incorrecto", "Ese magic number pertenece a otro tipo de archivo.")
+        tk.Button(card, text="APLICAR CARVING", command=verificar, bg=COLOR_ACCENT, bd=0, font=("Segoe UI", 9, "bold")).pack(pady=20, ipadx=15, ipady=5)
+
+    def cargar_practica_u3_p4(parent):
+        for w in parent.winfo_children(): w.destroy()
+        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card.pack(fill="both", expand=True, padx=20, pady=20)
+        tk.Label(card, text="PRÁCTICA 3.4: ANÁLISIS DE BASE DE DATOS SQLITE", font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 15))
+        tk.Label(card, text="Has montado la base de datos 'msgstore.db' extraída de un teléfono móvil incautado.", font=("Segoe UI", 10, "italic"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).pack(pady=5)
+        tk.Label(card, text="¿Qué instrucción SQL te permite visualizar TODOS los mensajes de la tabla 'messages_backup' sin alterarlos?", font=("Segoe UI", 10, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=15)
+        
+        var_resp = tk.StringVar(value="")
+        for t, v in [("A) DROP TABLE messages_backup;", "A"), ("B) SELECT * FROM messages_backup;", "B"), ("C) UPDATE messages_backup SET status='read';", "C")]:
+            tk.Radiobutton(card, text=t, variable=var_resp, value=v, font=("Consolas", 10), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, selectcolor=COLOR_CARD, activebackground=COLOR_ENTRY_BG, activeforeground=COLOR_ACCENT).pack(anchor="w", padx=100, pady=5)
+        
+        def verificar():
+            if var_resp.get() == "B": messagebox.showinfo("Consulta Exitosa", "Correcto. El comando SELECT extrae y visualiza la información de forma segura y en modo lectura.")
+            elif not var_resp.get(): messagebox.showwarning("Aviso", "Selecciona un comando.")
+            else: messagebox.showerror("Peligro Forense", "¡Comando Destructivo! Ese comando alteraría o eliminaría la evidencia original de la base de datos.")
+        tk.Button(card, text="EJECUTAR QUERY", command=verificar, bg=COLOR_ACCENT, bd=0, font=("Segoe UI", 9, "bold")).pack(pady=20, ipadx=15, ipady=5)
+
+    def cargar_practica_u4_p1(parent):
+        for w in parent.winfo_children(): w.destroy()
+        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card.pack(fill="both", expand=True, padx=20, pady=20)
+        tk.Label(card, text="PRÁCTICA 4.1: SIMULADOR DE TRIAGE E INCIDENTES", font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 15))
+        tk.Label(card, text="Escenario: Suena la alarma corporativa. Varios servidores muestran un mensaje de cifrado por Ransomware.", font=("Segoe UI", 10, "italic"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).pack(pady=5)
+        tk.Label(card, text="¿Cuál es la medida de contención (Triage) inicial más crítica para frenar el ataque sin destruir RAM?", font=("Segoe UI", 10, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=15)
+        
+        var_resp = tk.StringVar(value="")
+        for t, v in [("A) Desconectar inmediatamente los cables de red y apagar interfaces Wi-Fi.", "A"), ("B) Apagar todos los servidores desde el botón de encendido.", "B"), ("C) Formatear los discos para borrar el malware.", "C")]:
+            tk.Radiobutton(card, text=t, variable=var_resp, value=v, font=("Segoe UI", 9), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, selectcolor=COLOR_CARD, activebackground=COLOR_ENTRY_BG, activeforeground=COLOR_ACCENT).pack(anchor="w", padx=100, pady=5)
+        
+        def verificar():
+            if var_resp.get() == "A": messagebox.showinfo("Contención Exitosa", "¡Correcto! Aislar lógicamente el equipo de la red frena la propagación del Ransomware y mantiene viva la memoria RAM para extraer las claves de cifrado.")
+            elif not var_resp.get(): messagebox.showwarning("Aviso", "Selecciona una opción de Triage.")
+            else: messagebox.showerror("Error Crítico", "Esa acción destruiría evidencia vital (RAM) o eliminaría datos corporativos irreversiblemente.")
+        tk.Button(card, text="APLICAR MEDIDA", command=verificar, bg=COLOR_ACCENT, bd=0, font=("Segoe UI", 9, "bold")).pack(pady=20, ipadx=15, ipady=5)
+
+    def cargar_practica_u4_p3(parent):
+        for w in parent.winfo_children(): w.destroy()
+        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card.pack(fill="both", expand=True, padx=20, pady=20)
+        tk.Label(card, text="PRÁCTICA 4.3: LÍNEA DE TIEMPO (TIMELINE ANALYSIS)", font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 15))
+        tk.Label(card, text="Se han extraído 3 registros de sistemas distintos con las siguientes marcas de tiempo. Ordena la secuencia del ataque:", font=("Segoe UI", 10), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=15)
+        
+        txt_logs = tk.Text(card, height=4, width=60, bg=COLOR_CARD, fg=COLOR_TEXT_MUTED, bd=0, font=("Consolas", 9))
+        txt_logs.pack(pady=5)
+        txt_logs.insert(tk.END, "Log 1 (Firewall): [14:05:00] Bloqueo de escaneo de puertos.\nLog 2 (Sistema):  [14:15:30] Creación de tarea programada.\nLog 3 (Web DB):   [14:10:12] Inyección SQL exitosa.")
+        txt_logs.config(state="disabled")
+
+        var_resp = tk.StringVar(value="")
+        opciones = [
+            ("A) Escaneo -> Tarea Programada -> Inyección SQL", "A"),
+            ("B) Escaneo -> Inyección SQL -> Tarea Programada", "B"),
+            ("C) Inyección SQL -> Tarea Programada -> Escaneo", "C")
+        ]
+        for t, v in opciones:
+            tk.Radiobutton(card, text=t, variable=var_resp, value=v, font=("Segoe UI", 9), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, selectcolor=COLOR_CARD, activebackground=COLOR_ENTRY_BG, activeforeground=COLOR_ACCENT).pack(anchor="w", padx=100, pady=5)
+        
+        def verificar():
+            if var_resp.get() == "B": messagebox.showinfo("Timeline Correcto", "¡Exacto! El atacante primero escaneó la red (14:05), luego vulneró la web (14:10) y finalmente implantó persistencia (14:15).")
+            elif not var_resp.get(): messagebox.showwarning("Aviso", "Selecciona una secuencia.")
+            else: messagebox.showerror("Incorrecto", "Revisa el orden cronológico estricto de los logs.")
+        tk.Button(card, text="VALIDAR TIMELINE", command=verificar, bg=COLOR_ACCENT, bd=0, font=("Segoe UI", 9, "bold")).pack(pady=20, ipadx=15, ipady=5)
+
+    def cargar_practica_u4_p4(parent):
+        for w in parent.winfo_children(): w.destroy()
+        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card.pack(fill="both", expand=True, padx=20, pady=20)
+        tk.Label(card, text="PRÁCTICA 4.4: ATRIBUCIÓN Y HUELLAS (IoC)", font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 15))
+        tk.Label(card, text="Dentro de la inteligencia de amenazas (Threat Intelligence), un IoC sirve para identificar software o actores maliciosos.", font=("Segoe UI", 10, "italic"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).pack(pady=5)
+        tk.Label(card, text="¿Cuál de los siguientes ejemplos es un Indicador de Compromiso (IoC) técnico válido?", font=("Segoe UI", 10, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=15)
+        
+        var_resp = tk.StringVar(value="")
+        for t, v in [("A) El modelo físico del teclado utilizado en la oficina.", "A"), ("B) La firma hash SHA-256 de un archivo ejecutable no reconocido.", "B"), ("C) El sistema operativo Windows 10.", "C")]:
+            tk.Radiobutton(card, text=t, variable=var_resp, value=v, font=("Segoe UI", 9), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, selectcolor=COLOR_CARD, activebackground=COLOR_ENTRY_BG, activeforeground=COLOR_ACCENT).pack(anchor="w", padx=100, pady=5)
+        
+        def verificar():
+            if var_resp.get() == "B": messagebox.showinfo("Atribución Correcta", "¡Correcto! Una firma Hash única asociada a un malware es un IoC clave para rastrear y atribuir ataques en ciberseguridad.")
+            elif not var_resp.get(): messagebox.showwarning("Aviso", "Selecciona una opción.")
+            else: messagebox.showerror("Incorrecto", "Un IoC debe ser una huella digital técnica y específica de una amenaza, no hardware general o sistemas genéricos.")
+        tk.Button(card, text="IDENTIFICAR IoC", command=verificar, bg=COLOR_ACCENT, bd=0, font=("Segoe UI", 9, "bold")).pack(pady=20, ipadx=15, ipady=5)
 
     # -------------------------------------------------------------
     # EVENTO AL SELECCIONAR UN TEMA EN LA LISTA
@@ -532,16 +789,54 @@ def abrir_panel_alumno(usuario):
             btn_enviar.pack(pady=20, ipady=8, ipadx=20)
             aplicar_hover(btn_enviar, COLOR_ACCENT, COLOR_ACCENT_HOVER)
 
-        # 3. Cargar Práctica específica según la unidad
-        if t[1] == 1:
-            cargar_practica_hashes(container_practica)
-        elif t[1] == 2:
-            cargar_practica_exif(container_practica)
+        # --- ENRUTAMIENTO DINÁMICO DE LAS 16 PRÁCTICAS ---
+        for w in menu_practicas.winfo_children(): w.destroy()
+        for w in container_practica.winfo_children(): w.destroy()
+
+        def cargar_practica_generica(parent, titulo, descripcion):
+            for w in parent.winfo_children(): w.destroy()
+            tk.Label(parent, text=titulo, font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 10))
+            tk.Label(parent, text=descripcion, font=("Segoe UI", 10), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=5)
+            tk.Label(parent, text="[Módulo de práctica en desarrollo]", font=("Consolas", 11, "italic"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).pack(pady=30)
+
+        RUTAS_PRACTICAS = {
+            1: [
+                ("1. Trivia", cargar_practica_u1_p1 if cargar_practica_u1_p1 else lambda p: cargar_practica_generica(p, "Práctica 1.1 Trivia", "Archivo no encontrado.")),
+                ("2. Normativa ISO", cargar_practica_u1_p2 if cargar_practica_u1_p2 else lambda p: cargar_practica_generica(p, "Práctica 1.2 ISO", "Archivo no encontrado.")),
+                ("3. Conceptos", cargar_practica_u1_p3 if cargar_practica_u1_p3 else lambda p: cargar_practica_generica(p, "Práctica 1.3 Conceptos", "Archivo no encontrado.")),
+                ("4. Caso Real", cargar_practica_u1_p4 if cargar_practica_u1_p4 else lambda p: cargar_practica_generica(p, "Práctica 1.4 Caso", "Archivo no encontrado."))
+            ],
+            2: [
+                ("1. Identificación", cargar_practica_u2_p1),
+                ("2. Hashes", cargar_practica_hashes),
+                ("3. Cadena Custodia", cargar_practica_u2_p3),
+                ("4. Informes", cargar_practica_u2_p4)
+            ],
+            3: [
+                ("1. ExifTool", cargar_practica_exif),
+                ("2. Wireshark", cargar_practica_u3_p2),
+                ("3. File Carving", cargar_practica_u3_p3),
+                ("4. SQLite DB", cargar_practica_u3_p4)
+            ],
+            4: [
+                ("1. Triage", cargar_practica_u4_p1),
+                ("2. Windows Logs", cargar_practica_windows_logs),
+                ("3. Timeline", cargar_practica_u4_p3),
+                ("4. Indicadores (IoC)", cargar_practica_u4_p4)
+            ]
+        }
+        
+        practicas_unidad = RUTAS_PRACTICAS.get(t[1], [])
+        
+        if practicas_unidad:
+            for titulo, func in practicas_unidad:
+                btn = tk.Button(menu_practicas, text=titulo, font=("Segoe UI", 9, "bold"), bg=COLOR_BORDER, fg=COLOR_TEXT_LIGHT, bd=0, cursor="hand2", command=lambda f=func: f(container_practica))
+                btn.pack(side="left", padx=5, ipady=5, ipadx=10)
+                aplicar_hover(btn, COLOR_BORDER, COLOR_ACCENT_HOVER)
+            practicas_unidad[0][1](container_practica) # Carga la primera por defecto
         else:
-            for w in container_practica.winfo_children():
-                w.destroy()
-            tk.Label(container_practica, text=f"Práctica en desarrollo para la Unidad {t[1]}.",
-                     font=("Segoe UI", 11, "italic"), bg=COLOR_CARD, fg=COLOR_TEXT_MUTED).pack(pady=50)
+            tk.Label(container_practica, text=f"Prácticas no definidas para la Unidad {t[1]}.", font=("Segoe UI", 11, "italic"), bg=COLOR_CARD, fg=COLOR_TEXT_MUTED).pack(pady=50)
+        # ------------------------------------------------------------
 
         # Seleccionar por defecto la primera pestaña (Explicación)
         sub_pestanas.select(0)
@@ -555,4 +850,19 @@ def abrir_panel_alumno(usuario):
 
     ventana.bind("<Escape>", lambda e: ventana.destroy())
     ventana.after(100, animar_entrada)
-    ventana.mainloop()
+
+
+    def abrir_practica(self, id_practica, titulo):
+        # Enrutamiento según el ID de la práctica en la base de datos
+        if id_practica == 6: # Unidad 2, Práctica 2: Hashes
+            from tools.hash_simulator import HashSimulatorApp
+            ventana = tk.Toplevel(self.root)
+            HashSimulatorApp(ventana)
+            
+        elif id_practica == 14: # Unidad 4, Práctica 2: Análisis de Registros de Eventos de Windows
+            from tools.windows_logs_simulator import WindowsLogsSimulatorApp
+            ventana = tk.Toplevel(self.root)
+            WindowsLogsSimulatorApp(ventana)
+            
+        else:
+            messagebox.showinfo("En desarrollo", f"La práctica '{titulo}' está en proceso de integración.")
