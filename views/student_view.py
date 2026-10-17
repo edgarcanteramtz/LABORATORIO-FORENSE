@@ -3,6 +3,7 @@ import sqlite3
 import tkinter as tk
 import re
 from tkinter import filedialog, messagebox, ttk
+import customtkinter as ctk
 
 # Intentar importar la ruta de DB centralizada o calcularla en su defecto
 try:
@@ -44,7 +45,6 @@ try:
     from tools.practicas_u1 import cargar_practica_u1_p1, cargar_practica_u1_p2, cargar_practica_u1_p3, cargar_practica_u1_p4
 except ImportError:
     cargar_practica_u1_p1 = cargar_practica_u1_p2 = cargar_practica_u1_p3 = cargar_practica_u1_p4 = None
-# ---------------------------------------------------
 
 # ==========================================
 # PALETA DE COLORES "HUD FORENSIC / HIGH-TECH"
@@ -59,6 +59,34 @@ COLOR_ENTRY_BG = "#0E1524"
 COLOR_BORDER = "#1E293B"
 COLOR_DANGER = "#E63946"
 COLOR_DANGER_HOVER = "#D62828"
+
+# ==========================================
+# BARRA DE TÍTULO PERSONALIZADA
+# ==========================================
+def crear_barra_titulo(ventana, bg_color):
+    barra_titulo = ctk.CTkFrame(ventana, height=35, fg_color=bg_color, corner_radius=0)
+    barra_titulo.pack(side="top", fill="x")
+    barra_titulo.pack_propagate(False)
+
+    btn_cerrar = ctk.CTkButton(barra_titulo, text="✕", font=("Segoe UI", 14), width=45, height=35, 
+                               fg_color="transparent", hover_color="#E81123", text_color="white", 
+                               corner_radius=0, command=ventana.quit)
+    btn_cerrar.pack(side="right")
+
+    def toggle_maximizar():
+        es_fullscreen = ventana.attributes('-fullscreen')
+        ventana.attributes('-fullscreen', not es_fullscreen)
+        
+    btn_max = ctk.CTkButton(barra_titulo, text="🗗", font=("Segoe UI", 15), width=45, height=35, 
+                            fg_color="transparent", hover_color=COLOR_BORDER, text_color="white", 
+                            corner_radius=0, command=toggle_maximizar)
+    btn_max.pack(side="right")
+
+    btn_min = ctk.CTkButton(barra_titulo, text="—", font=("Segoe UI", 15, "bold"), width=45, height=35, 
+                            fg_color="transparent", hover_color=COLOR_BORDER, text_color="white", 
+                            corner_radius=0, command=ventana.iconify)
+    btn_min.pack(side="right")
+
 
 # ==========================================
 # CONTENIDO TEÓRICO COMPLETO DETALLADO
@@ -103,12 +131,6 @@ TEORIA_DETALLADA = {
     ]
 }
 
-
-def aplicar_hover(boton, color_normal, color_hover):
-    boton.bind("<Enter>", lambda e: boton.config(bg=color_hover))
-    boton.bind("<Leave>", lambda e: boton.config(bg=color_normal))
-
-
 def obtener_temas_bd():
     conexion = sqlite3.connect(RUTA_DB)
     cursor = conexion.cursor()
@@ -116,7 +138,6 @@ def obtener_temas_bd():
     temas = cursor.fetchall()
     conexion.close()
     return temas
-
 
 def obtener_preguntas_unidad(tema_id):
     conexion = sqlite3.connect(RUTA_DB)
@@ -128,7 +149,6 @@ def obtener_preguntas_unidad(tema_id):
     conexion.close()
     return preguntas
 
-
 def guardar_calificacion(usuario, tema_id, puntaje):
     conexion = sqlite3.connect(RUTA_DB)
     cursor = conexion.cursor()
@@ -139,7 +159,6 @@ def guardar_calificacion(usuario, tema_id, puntaje):
                        (user[0], tema_id, puntaje))
         conexion.commit()
     conexion.close()
-
 
 def obtener_calificaciones_usuario(usuario):
     conexion = sqlite3.connect(RUTA_DB)
@@ -157,126 +176,109 @@ def obtener_calificaciones_usuario(usuario):
     return registros
 
 
+# ==========================================
+# INTERFAZ GRÁFICA DEL ESTUDIANTE
+# ==========================================
 def abrir_panel_alumno(usuario):
-    # CORRECCIÓN: Se cambió de tk.Tk() a tk.Toplevel() para evitar conflictos de bucle principal
-    ventana = tk.Toplevel()
+    ventana = ctk.CTkToplevel()
     ventana.title(f"LAB VISUAL FORENSE - Módulo Guiado ({usuario})")
     ventana.attributes('-fullscreen', True)
-    ventana.configure(bg=COLOR_BG_DARK)
-    ventana.attributes("-alpha", 0.0)
+    ventana.configure(fg_color=COLOR_BG_DARK)
 
-    def animar_entrada(alpha=0.0):
-        if alpha < 1.0:
-            alpha += 0.05
-            ventana.attributes("-alpha", alpha)
-            ventana.after(20, lambda: animar_entrada(alpha))
+    # --- INSTANCIAR LA BARRA DE TÍTULO ---
+    crear_barra_titulo(ventana, COLOR_BG_DARK)
 
     style = ttk.Style()
     style.theme_use("clam")
     style.configure("Treeview", background=COLOR_ENTRY_BG, foreground=COLOR_TEXT_LIGHT, fieldbackground=COLOR_ENTRY_BG,
                     borderwidth=0, rowheight=30)
     style.map('Treeview', background=[('selected', COLOR_BORDER)], foreground=[('selected', COLOR_ACCENT)])
-    style.configure("TNotebook", background=COLOR_CARD, borderwidth=0)
-    style.configure("TNotebook.Tab", background=COLOR_ENTRY_BG, foreground=COLOR_TEXT_MUTED, padding=[15, 8],
-                    font=("Segoe UI", 10, "bold"))
-    style.map("TNotebook.Tab", background=[("selected", COLOR_CARD)], foreground=[("selected", COLOR_ACCENT)])
+    style.configure("Treeview.Heading", background=COLOR_CARD, foreground=COLOR_TEXT_MUTED, font=("Segoe UI", 10, "bold"), borderwidth=0)
 
     # Layout Principal: Sidebar (Izquierda) + Contenido (Derecha)
-    container_main = tk.Frame(ventana, bg=COLOR_BG_DARK)
+    container_main = ctk.CTkFrame(ventana, fg_color=COLOR_BG_DARK)
     container_main.pack(fill="both", expand=True, padx=20, pady=20)
 
     # -------------------------------------------------------------
     # SIDEBAR: LISTA DEL TEMARIO
     # -------------------------------------------------------------
-    sidebar = tk.Frame(container_main, bg=COLOR_CARD, width=320)
+    sidebar = ctk.CTkFrame(container_main, fg_color=COLOR_CARD, width=320, corner_radius=10)
     sidebar.pack(side="left", fill="y", padx=(0, 15))
     sidebar.pack_propagate(False)
 
-    tk.Label(sidebar, text="📚 TEMARIO DEL CURSO", font=("Segoe UI", 12, "bold"), bg=COLOR_CARD, fg=COLOR_ACCENT).pack(
+    ctk.CTkLabel(sidebar, text="📚 TEMARIO DEL CURSO", font=ctk.CTkFont("Segoe UI", 14, "bold"), text_color=COLOR_ACCENT).pack(
         pady=(20, 10), padx=15, anchor="w")
 
+    # Listbox mantenido por compatibilidad de eventos
     listbox_temas = tk.Listbox(sidebar, bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, selectbackground=COLOR_BORDER,
-                               selectforeground=COLOR_ACCENT, font=("Segoe UI", 10), bd=0, highlightthickness=0)
+                               selectforeground=COLOR_ACCENT, font=("Segoe UI", 11), bd=0, highlightthickness=0)
     listbox_temas.pack(fill="both", expand=True, padx=15, pady=(0, 15))
 
     temas = obtener_temas_bd()
     for t in temas:
         listbox_temas.insert("end", f" Unidad {t[1]}: {t[2]}")
 
-    btn_cerrar = tk.Button(sidebar, text="CERRAR SESIÓN", command=ventana.destroy, font=("Segoe UI", 10, "bold"),
-                           bg=COLOR_DANGER, fg=COLOR_TEXT_LIGHT, activebackground=COLOR_DANGER_HOVER, relief="flat",
-                           cursor="hand2", bd=0)
-    btn_cerrar.pack(fill="x", padx=15, pady=15, ipady=8)
-    aplicar_hover(btn_cerrar, COLOR_DANGER, COLOR_DANGER_HOVER)
+    btn_cerrar = ctk.CTkButton(sidebar, text="CERRAR SESIÓN", command=ventana.quit, font=ctk.CTkFont("Segoe UI", 12, "bold"),
+                               fg_color=COLOR_DANGER, hover_color=COLOR_DANGER_HOVER, text_color=COLOR_TEXT_LIGHT, cursor="hand2")
+    btn_cerrar.pack(fill="x", padx=15, pady=15, ipady=5)
 
     # -------------------------------------------------------------
     # PANEL DERECHO: CONTENIDO DEL TEMA
     # -------------------------------------------------------------
-    panel_derecho = tk.Frame(container_main, bg=COLOR_CARD)
+    panel_derecho = ctk.CTkFrame(container_main, fg_color=COLOR_CARD, corner_radius=10)
     panel_derecho.pack(side="right", fill="both", expand=True)
 
-    lbl_titulo_tema = tk.Label(panel_derecho, text="Selecciona un tema del temario para comenzar",
-                               font=("Segoe UI", 14, "bold"), bg=COLOR_CARD, fg=COLOR_TEXT_LIGHT)
+    lbl_titulo_tema = ctk.CTkLabel(panel_derecho, text="Selecciona un tema del temario para comenzar",
+                                   font=ctk.CTkFont("Segoe UI", 18, "bold"), text_color=COLOR_TEXT_LIGHT)
     lbl_titulo_tema.pack(pady=(20, 10), padx=25, anchor="w")
 
-    sub_pestanas = ttk.Notebook(panel_derecho)
+    sub_pestanas = ctk.CTkTabview(panel_derecho, fg_color=COLOR_ENTRY_BG, segmented_button_selected_color=COLOR_BORDER,
+                                  segmented_button_selected_hover_color=COLOR_CARD, segmented_button_unselected_color=COLOR_CARD,
+                                  text_color=COLOR_TEXT_MUTED, corner_radius=10)
     sub_pestanas.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
+    tab_teoria_name = "📖 1. Explicación"
+    tab_quiz_name = "📝 2. Cuestionario"
+    tab_practica_name = "🛠️ 3. Práctica Aplicada"
+    tab_historial_name = "📊 4. Mis Calificaciones"
+
+    sub_pestanas.add(tab_teoria_name)
+    sub_pestanas.add(tab_quiz_name)
+    sub_pestanas.add(tab_practica_name)
+    sub_pestanas.add(tab_historial_name)
+
     # --- PASO 1: TEORÍA Y EXPLICACIÓN ---
-    tab_teoria = ttk.Frame(sub_pestanas)
-    sub_pestanas.add(tab_teoria, text="📖 1. Explicación")
+    tab_teoria = sub_pestanas.tab(tab_teoria_name)
 
-    frame_teoria_container = tk.Frame(tab_teoria, bg=COLOR_ENTRY_BG)
-    frame_teoria_container.pack(fill="both", expand=True, padx=15, pady=15)
+    area_teoria = ctk.CTkTextbox(tab_teoria, wrap="word", font=ctk.CTkFont("Segoe UI", 14), fg_color=COLOR_CARD,
+                                 text_color=COLOR_TEXT_LIGHT, border_width=0, corner_radius=10)
+    area_teoria.pack(fill="both", expand=True, padx=15, pady=15)
 
-    scroll_teoria = ttk.Scrollbar(frame_teoria_container)
-    scroll_teoria.pack(side="right", fill="y")
-
-    area_teoria = tk.Text(frame_teoria_container, wrap="word", font=("Segoe UI", 11), bg=COLOR_ENTRY_BG,
-                          fg=COLOR_TEXT_LIGHT,
-                          relief="flat", bd=0, padx=20, pady=20, yscrollcommand=scroll_teoria.set)
-    area_teoria.pack(side="left", fill="both", expand=True)
-    scroll_teoria.config(command=area_teoria.yview)
-
-    # Configuración de etiquetas de formato rico para el área de teoría
-    area_teoria.tag_configure("subtitulo", font=("Segoe UI", 12, "bold"), foreground=COLOR_ACCENT)
-    area_teoria.tag_configure("subsubtitulo", font=("Segoe UI", 11, "bold"), foreground="#00C4D4")
-    area_teoria.tag_configure("cuerpo", font=("Segoe UI", 10), foreground=COLOR_TEXT_LIGHT)
+    # Etiquetas de formato en CTkTextbox (Corregido sin FONT para evitar AttributeError)
+    area_teoria.tag_config("subtitulo", foreground=COLOR_ACCENT)
+    area_teoria.tag_config("subsubtitulo", foreground="#00C4D4")
+    area_teoria.tag_config("cuerpo", foreground=COLOR_TEXT_LIGHT)
 
     # --- PASO 2: CUESTIONARIO DE PREGUNTAS ---
-    tab_quiz = ttk.Frame(sub_pestanas)
-    sub_pestanas.add(tab_quiz, text="📝 2. Cuestionario")
+    tab_quiz = sub_pestanas.tab(tab_quiz_name)
+    scrollable_quiz_inner = ctk.CTkScrollableFrame(tab_quiz, fg_color="transparent")
+    scrollable_quiz_inner.pack(fill="both", expand=True, padx=15, pady=15)
 
-    frame_scroll_quiz = tk.Canvas(tab_quiz, bg=COLOR_CARD, highlightthickness=0)
-    scrollbar_quiz = ttk.Scrollbar(tab_quiz, orient="vertical", command=frame_scroll_quiz.yview)
-    scrollable_quiz_inner = tk.Frame(frame_scroll_quiz, bg=COLOR_CARD)
-
-    scrollable_quiz_inner.bind(
-        "<Configure>",
-        lambda e: frame_scroll_quiz.configure(scrollregion=frame_scroll_quiz.bbox("all"))
-    )
-
-    frame_scroll_quiz.create_window((0, 0), window=scrollable_quiz_inner, anchor="nw")
-    frame_scroll_quiz.configure(yscrollcommand=scrollbar_quiz.set)
-
-    frame_scroll_quiz.pack(side="left", fill="both", expand=True, padx=15, pady=15)
-    scrollbar_quiz.pack(side="right", fill="y", pady=15)
-
-    # --- PASO 3: PRÁCTICA APLICADA (ACTUALIZADO CON MENÚ) ---
-    tab_practica = ttk.Frame(sub_pestanas)
-    sub_pestanas.add(tab_practica, text="🛠️ 3. Práctica Aplicada")
-
-    menu_practicas = tk.Frame(tab_practica, bg=COLOR_CARD)
+    # --- PASO 3: PRÁCTICA APLICADA ---
+    tab_practica = sub_pestanas.tab(tab_practica_name)
+    menu_practicas = ctk.CTkFrame(tab_practica, fg_color="transparent")
     menu_practicas.pack(fill="x", padx=15, pady=(15, 0))
 
-    container_practica = tk.Frame(tab_practica, bg=COLOR_CARD)
+    container_practica = ctk.CTkFrame(tab_practica, fg_color="transparent")
     container_practica.pack(fill="both", expand=True, padx=15, pady=15)
 
     # --- PASO 4: HISTORIAL DE CALIFICACIONES ---
-    tab_historial = ttk.Frame(sub_pestanas)
-    sub_pestanas.add(tab_historial, text="📊 4. Mis Calificaciones")
+    tab_historial = sub_pestanas.tab(tab_historial_name)
 
-    tabla_historial = ttk.Treeview(tab_historial, columns=("u", "t", "p", "f"), show="headings", height=10)
+    f_hist_tbl = ctk.CTkFrame(tab_historial, fg_color="transparent")
+    f_hist_tbl.pack(fill="both", expand=True, padx=15, pady=15)
+
+    tabla_historial = ttk.Treeview(f_hist_tbl, columns=("u", "t", "p", "f"), show="headings", height=10)
     tabla_historial.heading("u", text="Unidad")
     tabla_historial.heading("t", text="Título del Tema")
     tabla_historial.heading("p", text="Calificación")
@@ -285,7 +287,11 @@ def abrir_panel_alumno(usuario):
     tabla_historial.column("t", width=250, anchor="w")
     tabla_historial.column("p", width=100, anchor="center")
     tabla_historial.column("f", width=180, anchor="center")
-    tabla_historial.pack(fill="both", expand=True, padx=20, pady=20)
+    tabla_historial.pack(side="left", fill="both", expand=True)
+
+    scroll_hist = ctk.CTkScrollbar(f_hist_tbl, orientation="vertical", command=tabla_historial.yview)
+    tabla_historial.configure(yscrollcommand=scroll_hist.set)
+    scroll_hist.pack(side="right", fill="y")
 
     def actualizar_tabla_historial():
         for item in tabla_historial.get_children():
@@ -308,11 +314,10 @@ def abrir_panel_alumno(usuario):
         for w in parent.winfo_children():
             w.destroy()
 
-        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card = ctk.CTkFrame(parent, fg_color=COLOR_ENTRY_BG, corner_radius=10)
         card.pack(fill="both", expand=True, padx=20, pady=20)
 
-        tk.Label(card, text="PRÁCTICA 2.2: VERIFICACIÓN DE HASHES Y CADENA DE CUSTODIA", font=("Segoe UI", 12, "bold"),
-                 bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 15))
+        ctk.CTkLabel(card, text="PRÁCTICA 2.2: VERIFICACIÓN DE HASHES Y CADENA DE CUSTODIA", font=ctk.CTkFont("Segoe UI", 14, "bold"), text_color=COLOR_ACCENT).pack(pady=(20, 15))
 
         ruta_var = tk.StringVar()
         res_var = tk.StringVar()
@@ -333,8 +338,7 @@ def abrir_panel_alumno(usuario):
             if not res_var.get():
                 messagebox.showwarning("Atención", "Calcula un hash primero.")
                 return
-            datos = {"Archivo": os.path.basename(ruta_var.get()), "Ruta": ruta_var.get(), "Algoritmo": combo_algo.get(),
-                     "Hash": res_var.get()}
+            datos = {"Archivo": os.path.basename(ruta_var.get()), "Ruta": ruta_var.get(), "Algoritmo": combo_algo.get(), "Hash": res_var.get()}
             nom, txt = generar_reporte_txt("HASH_INTEGRIDAD", usuario, datos)
             dest = filedialog.asksaveasfilename(defaultextension=".txt", initialfile=nom)
             if dest:
@@ -342,40 +346,36 @@ def abrir_panel_alumno(usuario):
                     f.write(txt)
                 messagebox.showinfo("Éxito", "Reporte guardado correctamente.")
 
-        frame_f = tk.Frame(card, bg=COLOR_ENTRY_BG)
+        frame_f = ctk.CTkFrame(card, fg_color="transparent")
         frame_f.pack(pady=10)
-        btn_b = tk.Button(frame_f, text="SELECCIONAR ARCHIVO", command=seleccionar, bg=COLOR_BORDER,
-                          fg=COLOR_TEXT_LIGHT, font=("Segoe UI", 9, "bold"), bd=0, cursor="hand2")
-        btn_b.pack(side="left", padx=5, ipady=5, ipadx=10)
-        entry_r = tk.Entry(frame_f, textvariable=ruta_var, font=("Segoe UI", 10), width=40, bg=COLOR_CARD,
-                           fg=COLOR_TEXT_MUTED, bd=0)
-        entry_r.pack(side="left", padx=5, ipady=5)
+        
+        btn_b = ctk.CTkButton(frame_f, text="SELECCIONAR ARCHIVO", command=seleccionar, fg_color=COLOR_BORDER, hover_color=COLOR_ENTRY_BG, text_color=COLOR_TEXT_LIGHT, font=ctk.CTkFont("Segoe UI", 12, "bold"))
+        btn_b.pack(side="left", padx=5)
+        
+        entry_r = ctk.CTkEntry(frame_f, textvariable=ruta_var, font=ctk.CTkFont("Segoe UI", 12), width=400, fg_color=COLOR_CARD, text_color=COLOR_TEXT_MUTED, border_width=0)
+        entry_r.pack(side="left", padx=5)
 
-        combo_algo = ttk.Combobox(card, values=["SHA256", "MD5", "SHA1"], state="readonly", font=("Segoe UI", 10))
+        combo_algo = ctk.CTkComboBox(card, values=["SHA256", "MD5", "SHA1"], state="readonly", font=ctk.CTkFont("Segoe UI", 12), fg_color=COLOR_CARD, border_width=0)
         combo_algo.set("SHA256")
         combo_algo.pack(pady=10)
 
-        btn_c = tk.Button(card, text="CALCULAR HASH", command=calcular, bg=COLOR_ACCENT, fg=COLOR_BG_DARK,
-                          font=("Segoe UI", 10, "bold"), bd=0, cursor="hand2")
-        btn_c.pack(pady=10, ipadx=20, ipady=6)
+        btn_c = ctk.CTkButton(card, text="CALCULAR HASH", command=calcular, fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_BG_DARK, font=ctk.CTkFont("Segoe UI", 12, "bold"))
+        btn_c.pack(pady=10)
 
-        entry_res = tk.Entry(card, textvariable=res_var, font=("Consolas", 11, "bold"), bg=COLOR_CARD, fg=COLOR_ACCENT,
-                             bd=0, justify="center", width=50)
-        entry_res.pack(pady=10, ipady=6)
+        entry_res = ctk.CTkEntry(card, textvariable=res_var, font=ctk.CTkFont("Consolas", 14, "bold"), fg_color=COLOR_CARD, text_color=COLOR_ACCENT, border_width=0, justify="center", width=500)
+        entry_res.pack(pady=10)
 
-        btn_exp = tk.Button(card, text="📄 EXPORTAR REPORTE DE CADENA DE CUSTODIA", command=exportar, bg=COLOR_BORDER,
-                            fg=COLOR_ACCENT, font=("Segoe UI", 9, "bold"), bd=0, cursor="hand2")
-        btn_exp.pack(pady=15, ipady=8, ipadx=15)
+        btn_exp = ctk.CTkButton(card, text="📄 EXPORTAR REPORTE", command=exportar, fg_color=COLOR_BORDER, hover_color=COLOR_ENTRY_BG, text_color=COLOR_ACCENT, font=ctk.CTkFont("Segoe UI", 12, "bold"))
+        btn_exp.pack(pady=15)
 
     def cargar_practica_exif(parent):
         for w in parent.winfo_children():
             w.destroy()
 
-        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card = ctk.CTkFrame(parent, fg_color=COLOR_ENTRY_BG, corner_radius=10)
         card.pack(fill="both", expand=True, padx=20, pady=20)
 
-        tk.Label(card, text="PRÁCTICA 3.1: EXTRACTOR DE METADATOS Y CABECERAS EXIF", font=("Segoe UI", 12, "bold"),
-                 bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(15, 10))
+        ctk.CTkLabel(card, text="PRÁCTICA 3.1: EXTRACTOR DE METADATOS Y CABECERAS EXIF", font=ctk.CTkFont("Segoe UI", 14, "bold"), text_color=COLOR_ACCENT).pack(pady=(15, 10))
 
         ruta_img_var = tk.StringVar()
         ultimo_res = {}
@@ -418,46 +418,49 @@ def abrir_panel_alumno(usuario):
                     f.write(txt)
                 messagebox.showinfo("Éxito", "Reporte guardado correctamente.")
 
-        frame_top = tk.Frame(card, bg=COLOR_ENTRY_BG)
+        frame_top = ctk.CTkFrame(card, fg_color="transparent")
         frame_top.pack(fill="x", padx=10, pady=5)
 
-        btn_b = tk.Button(frame_top, text="SELECCIONAR IMAGEN", command=seleccionar, bg=COLOR_BORDER,
-                          fg=COLOR_TEXT_LIGHT, font=("Segoe UI", 9, "bold"), bd=0, cursor="hand2")
-        btn_b.pack(side="left", ipadx=10, ipady=5)
-        tk.Entry(frame_top, textvariable=ruta_img_var, font=("Segoe UI", 9), bg=COLOR_CARD, fg=COLOR_TEXT_MUTED,
-                 bd=0).pack(side="left", fill="x", expand=True, padx=10, ipady=5)
-        btn_a = tk.Button(frame_top, text="ANALIZAR", command=analizar, bg=COLOR_ACCENT, fg=COLOR_BG_DARK,
-                          font=("Segoe UI", 9, "bold"), bd=0, cursor="hand2")
-        btn_a.pack(side="right", ipadx=15, ipady=5)
+        btn_b = ctk.CTkButton(frame_top, text="SELECCIONAR IMAGEN", command=seleccionar, fg_color=COLOR_BORDER, hover_color=COLOR_ENTRY_BG, text_color=COLOR_TEXT_LIGHT, font=ctk.CTkFont("Segoe UI", 12, "bold"))
+        btn_b.pack(side="left", padx=5)
+        
+        entry_r = ctk.CTkEntry(frame_top, textvariable=ruta_img_var, font=ctk.CTkFont("Segoe UI", 12), fg_color=COLOR_CARD, text_color=COLOR_TEXT_MUTED, border_width=0)
+        entry_r.pack(side="left", fill="x", expand=True, padx=10)
+        
+        btn_a = ctk.CTkButton(frame_top, text="ANALIZAR", command=analizar, fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_BG_DARK, font=ctk.CTkFont("Segoe UI", 12, "bold"))
+        btn_a.pack(side="right", padx=5)
 
-        tabla = ttk.Treeview(card, columns=("p", "v"), show="headings", height=8)
+        tabla_frame = ctk.CTkFrame(card, fg_color="transparent")
+        tabla_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        tabla = ttk.Treeview(tabla_frame, columns=("p", "v"), show="headings", height=8)
         tabla.heading("p", text="Propiedad")
         tabla.heading("v", text="Valor Extraído")
         tabla.column("p", width=200)
         tabla.column("v", width=450)
-        tabla.pack(fill="both", expand=True, padx=10, pady=10)
+        tabla.pack(side="left", fill="both", expand=True)
 
-        btn_e = tk.Button(card, text="📄 EXPORTAR REPORTE EXIF", command=exportar, bg=COLOR_BORDER, fg=COLOR_ACCENT,
-                          font=("Segoe UI", 9, "bold"), bd=0, cursor="hand2")
-        btn_e.pack(pady=(0, 10), ipady=6, ipadx=15)
+        scroll_tbl = ctk.CTkScrollbar(tabla_frame, orientation="vertical", command=tabla.yview)
+        tabla.configure(yscrollcommand=scroll_tbl.set)
+        scroll_tbl.pack(side="right", fill="y")
+
+        btn_e = ctk.CTkButton(card, text="📄 EXPORTAR REPORTE EXIF", command=exportar, fg_color=COLOR_BORDER, hover_color=COLOR_ENTRY_BG, text_color=COLOR_ACCENT, font=ctk.CTkFont("Segoe UI", 12, "bold"))
+        btn_e.pack(pady=(0, 10))
 
     def cargar_practica_windows_logs(parent):
-        for w in parent.winfo_children():
-            w.destroy()
-
-        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        for w in parent.winfo_children(): w.destroy()
+        card = ctk.CTkFrame(parent, fg_color=COLOR_ENTRY_BG, corner_radius=10)
         card.pack(fill="both", expand=True, padx=20, pady=20)
 
-        tk.Label(card, text="PRÁCTICA 4.2: ANÁLISIS DE REGISTROS DE EVENTOS DE WINDOWS", font=("Segoe UI", 12, "bold"),
-                 bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(15, 10))
+        ctk.CTkLabel(card, text="PRÁCTICA 4.2: ANÁLISIS DE REGISTROS DE EVENTOS DE WINDOWS", font=ctk.CTkFont("Segoe UI", 14, "bold"), text_color=COLOR_ACCENT).pack(pady=(15, 10))
 
         instruccion = (
             "Analiza el fragmento de registros de eventos extraídos de la máquina comprometida.\n"
             "Identifica el Event ID clave que revela la alteración de la seguridad o persistencia del atacante."
         )
-        tk.Label(card, text=instruccion, font=("Segoe UI", 10), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, justify="left", wraplength=650).pack(pady=5)
+        ctk.CTkLabel(card, text=instruccion, font=ctk.CTkFont("Segoe UI", 12), text_color=COLOR_TEXT_LIGHT, justify="left", wraplength=650).pack(pady=5)
 
-        txt_logs = tk.Text(card, height=8, width=75, bg=COLOR_CARD, fg=COLOR_TEXT_LIGHT, bd=0, font=("Consolas", 9))
+        txt_logs = ctk.CTkTextbox(card, height=130, width=650, fg_color=COLOR_CARD, text_color=COLOR_TEXT_LIGHT, border_width=0, font=ctk.CTkFont("Consolas", 12))
         txt_logs.pack(pady=10)
         
         logs_simulados = (
@@ -468,9 +471,9 @@ def abrir_panel_alumno(usuario):
             "[10:25:40] Event ID: 4672 - Special privileges assigned to new logon. User: backdoor_admin\n"
         )
         txt_logs.insert(tk.END, logs_simulados)
-        txt_logs.config(state="disabled")
+        txt_logs.configure(state="disabled")
 
-        tk.Label(card, text="¿Cuál es el Event ID crítico que evidencia la creación de una cuenta no autorizada?", font=("Segoe UI", 10, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=5)
+        ctk.CTkLabel(card, text="¿Cuál es el Event ID crítico que evidencia la creación de una cuenta no autorizada?", font=ctk.CTkFont("Segoe UI", 12, "bold"), text_color=COLOR_ACCENT).pack(pady=5)
 
         var_respuesta = tk.StringVar(value="")
         opciones = [
@@ -481,9 +484,8 @@ def abrir_panel_alumno(usuario):
         ]
 
         for texto, val in opciones:
-            tk.Radiobutton(card, text=texto, variable=var_respuesta, value=val, font=("Segoe UI", 9),
-                           bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, selectcolor=COLOR_CARD,
-                           activebackground=COLOR_ENTRY_BG, activeforeground=COLOR_ACCENT, cursor="hand2").pack(anchor="w", padx=40, pady=2)
+            ctk.CTkRadioButton(card, text=texto, variable=var_respuesta, value=val, font=ctk.CTkFont("Segoe UI", 12), 
+                               fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_TEXT_LIGHT).pack(anchor="w", padx=100, pady=5)
 
         def verificar():
             seleccion = var_respuesta.get()
@@ -494,64 +496,64 @@ def abrir_panel_alumno(usuario):
             else:
                 messagebox.showerror("Incorrecto", "Ese evento muestra otra actividad, pero no es el indicador principal de la creación de la cuenta maliciosa.")
 
-        btn_verificar = tk.Button(card, text="VERIFICAR HALLAZGO", command=verificar, bg=COLOR_ACCENT, fg=COLOR_BG_DARK,
-                                  font=("Segoe UI", 9, "bold"), bd=0, cursor="hand2")
-        btn_verificar.pack(pady=15, ipady=6, ipadx=15)
+        btn_verificar = ctk.CTkButton(card, text="VERIFICAR HALLAZGO", command=verificar, fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_BG_DARK, font=ctk.CTkFont("Segoe UI", 12, "bold"))
+        btn_verificar.pack(pady=15)
 
-    # -------------------------------------------------------------
-    # CONSTRUCTORES DE LAS NUEVAS PRÁCTICAS (U2, U3, U4)
-    # -------------------------------------------------------------
     def cargar_practica_u2_p1(parent):
         for w in parent.winfo_children(): w.destroy()
-        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card = ctk.CTkFrame(parent, fg_color=COLOR_ENTRY_BG, corner_radius=10)
         card.pack(fill="both", expand=True, padx=20, pady=20)
-        tk.Label(card, text="PRÁCTICA 2.1: IDENTIFICACIÓN DE EVIDENCIA Y VOLATILIDAD", font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 15))
-        tk.Label(card, text="Escenario: Llegas a una escena y encuentras una PC encendida, un router activo y varias memorias USB.", font=("Segoe UI", 10, "italic"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).pack(pady=5)
-        tk.Label(card, text="Según el RFC 3227, ¿qué evidencia debes recolectar y documentar PRIMERO por su alta volatilidad?", font=("Segoe UI", 10, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=15)
+        
+        ctk.CTkLabel(card, text="PRÁCTICA 2.1: IDENTIFICACIÓN DE EVIDENCIA Y VOLATILIDAD", font=ctk.CTkFont("Segoe UI", 14, "bold"), text_color=COLOR_ACCENT).pack(pady=(20, 15))
+        ctk.CTkLabel(card, text="Escenario: Llegas a una escena y encuentras una PC encendida, un router activo y varias memorias USB.", font=ctk.CTkFont("Segoe UI", 12, "italic"), text_color=COLOR_TEXT_MUTED).pack(pady=5)
+        ctk.CTkLabel(card, text="Según el RFC 3227, ¿qué evidencia debes recolectar y documentar PRIMERO por su alta volatilidad?", font=ctk.CTkFont("Segoe UI", 12, "bold"), text_color=COLOR_TEXT_LIGHT).pack(pady=15)
         
         var_resp = tk.StringVar(value="")
-        for t, v in [("A) El disco duro externo guardado en un cajón.", "C"), ("B) La memoria RAM de la PC encendida.", "A"), ("C) Las memorias USB desconectadas sobre la mesa.", "B")]:
-            tk.Radiobutton(card, text=t, variable=var_resp, value=v, font=("Segoe UI", 9), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, selectcolor=COLOR_CARD, activebackground=COLOR_ENTRY_BG, activeforeground=COLOR_ACCENT).pack(anchor="w", padx=100, pady=5)
+        opciones = [("A) El disco duro externo guardado en un cajón.", "C"), ("B) La memoria RAM de la PC encendida.", "A"), ("C) Las memorias USB desconectadas sobre la mesa.", "B")]
+        for t, v in opciones:
+            ctk.CTkRadioButton(card, text=t, variable=var_resp, value=v, font=ctk.CTkFont("Segoe UI", 12), fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_TEXT_LIGHT).pack(anchor="w", padx=100, pady=5)
         
         def verificar():
             if var_resp.get() == "A": messagebox.showinfo("Correcto", "Excelente. La RAM es altamente volátil y debe volcarse antes de que el equipo pierda energía.")
             elif not var_resp.get(): messagebox.showwarning("Aviso", "Selecciona una opción.")
             else: messagebox.showerror("Incorrecto", "Revisa el orden de volatilidad del RFC 3227. Esa evidencia es persistente.")
-        tk.Button(card, text="VERIFICAR", command=verificar, bg=COLOR_ACCENT, bd=0, font=("Segoe UI", 9, "bold")).pack(pady=20, ipadx=15, ipady=5)
+        ctk.CTkButton(card, text="VERIFICAR", command=verificar, fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_BG_DARK, font=ctk.CTkFont("Segoe UI", 12, "bold")).pack(pady=20)
 
     def cargar_practica_u2_p3(parent):
         for w in parent.winfo_children(): w.destroy()
-        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card = ctk.CTkFrame(parent, fg_color=COLOR_ENTRY_BG, corner_radius=10)
         card.pack(fill="both", expand=True, padx=20, pady=20)
-        tk.Label(card, text="PRÁCTICA 2.3: REGISTRO DE CADENA DE CUSTODIA", font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 15))
-        tk.Label(card, text="Completa el formulario legal básico para preservar una evidencia digital:", font=("Segoe UI", 10), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=5)
         
-        frame_form = tk.Frame(card, bg=COLOR_ENTRY_BG)
+        ctk.CTkLabel(card, text="PRÁCTICA 2.3: REGISTRO DE CADENA DE CUSTODIA", font=ctk.CTkFont("Segoe UI", 14, "bold"), text_color=COLOR_ACCENT).pack(pady=(20, 15))
+        ctk.CTkLabel(card, text="Completa el formulario legal básico para preservar una evidencia digital:", font=ctk.CTkFont("Segoe UI", 12), text_color=COLOR_TEXT_LIGHT).pack(pady=5)
+        
+        frame_form = ctk.CTkFrame(card, fg_color="transparent")
         frame_form.pack(pady=10)
         
-        tk.Label(frame_form, text="Nombre del Recolector:", bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).grid(row=0, column=0, sticky="e", pady=5, padx=5)
-        e1 = tk.Entry(frame_form, bg=COLOR_CARD, fg=COLOR_TEXT_LIGHT, bd=0, width=30)
-        e1.grid(row=0, column=1, pady=5, ipady=3)
+        ctk.CTkLabel(frame_form, text="Nombre del Recolector:", text_color=COLOR_TEXT_MUTED).grid(row=0, column=0, sticky="e", pady=10, padx=10)
+        e1 = ctk.CTkEntry(frame_form, fg_color=COLOR_CARD, text_color=COLOR_TEXT_LIGHT, border_width=0, width=300)
+        e1.grid(row=0, column=1, pady=10)
         
-        tk.Label(frame_form, text="Descripción del Dispositivo:", bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).grid(row=1, column=0, sticky="e", pady=5, padx=5)
-        e2 = tk.Entry(frame_form, bg=COLOR_CARD, fg=COLOR_TEXT_LIGHT, bd=0, width=30)
-        e2.grid(row=1, column=1, pady=5, ipady=3)
+        ctk.CTkLabel(frame_form, text="Descripción del Dispositivo:", text_color=COLOR_TEXT_MUTED).grid(row=1, column=0, sticky="e", pady=10, padx=10)
+        e2 = ctk.CTkEntry(frame_form, fg_color=COLOR_CARD, text_color=COLOR_TEXT_LIGHT, border_width=0, width=300)
+        e2.grid(row=1, column=1, pady=10)
         
-        tk.Label(frame_form, text="Firma Hash (SHA-256):", bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).grid(row=2, column=0, sticky="e", pady=5, padx=5)
-        e3 = tk.Entry(frame_form, bg=COLOR_CARD, fg=COLOR_TEXT_LIGHT, bd=0, width=30)
-        e3.grid(row=2, column=1, pady=5, ipady=3)
+        ctk.CTkLabel(frame_form, text="Firma Hash (SHA-256):", text_color=COLOR_TEXT_MUTED).grid(row=2, column=0, sticky="e", pady=10, padx=10)
+        e3 = ctk.CTkEntry(frame_form, fg_color=COLOR_CARD, text_color=COLOR_TEXT_LIGHT, border_width=0, width=300)
+        e3.grid(row=2, column=1, pady=10)
 
         def generar():
             if not e1.get() or not e2.get() or not e3.get(): messagebox.showwarning("Error", "Todos los campos de la Cadena de Custodia son obligatorios legalmente.")
             else: messagebox.showinfo("Éxito", f"Cadena de Custodia generada correctamente para el dispositivo:\n{e2.get()}")
-        tk.Button(card, text="GENERAR FORMATO LEGAL", command=generar, bg=COLOR_ACCENT, bd=0, font=("Segoe UI", 9, "bold")).pack(pady=20, ipadx=15, ipady=5)
+        ctk.CTkButton(card, text="GENERAR FORMATO LEGAL", command=generar, fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_BG_DARK, font=ctk.CTkFont("Segoe UI", 12, "bold")).pack(pady=20)
 
     def cargar_practica_u2_p4(parent):
         for w in parent.winfo_children(): w.destroy()
-        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card = ctk.CTkFrame(parent, fg_color=COLOR_ENTRY_BG, corner_radius=10)
         card.pack(fill="both", expand=True, padx=20, pady=20)
-        tk.Label(card, text="PRÁCTICA 2.4: ESTRUCTURA DEL INFORME PERICIAL", font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 15))
-        tk.Label(card, text="Identifica el orden metodológico correcto de las secciones de un informe técnico pericial:", font=("Segoe UI", 10), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=15)
+        
+        ctk.CTkLabel(card, text="PRÁCTICA 2.4: ESTRUCTURA DEL INFORME PERICIAL", font=ctk.CTkFont("Segoe UI", 14, "bold"), text_color=COLOR_ACCENT).pack(pady=(20, 15))
+        ctk.CTkLabel(card, text="Identifica el orden metodológico correcto de las secciones de un informe técnico pericial:", font=ctk.CTkFont("Segoe UI", 12), text_color=COLOR_TEXT_LIGHT).pack(pady=15)
         
         var_resp = tk.StringVar(value="")
         opciones = [
@@ -560,100 +562,108 @@ def abrir_panel_alumno(usuario):
             ("C) Hallazgos -> Conclusiones -> Objetivos -> Metodología", "C")
         ]
         for t, v in opciones:
-            tk.Radiobutton(card, text=t, variable=var_resp, value=v, font=("Segoe UI", 9), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, selectcolor=COLOR_CARD, activebackground=COLOR_ENTRY_BG, activeforeground=COLOR_ACCENT).pack(anchor="w", padx=100, pady=5)
+            ctk.CTkRadioButton(card, text=t, variable=var_resp, value=v, font=ctk.CTkFont("Segoe UI", 12), fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_TEXT_LIGHT).pack(anchor="w", padx=100, pady=5)
         
         def verificar():
             if var_resp.get() == "B": messagebox.showinfo("Correcto", "¡Exacto! El informe debe iniciar planteando el objetivo, explicar el método usado, mostrar la evidencia encontrada y concluir lógicamente.")
             elif not var_resp.get(): messagebox.showwarning("Aviso", "Selecciona una opción.")
             else: messagebox.showerror("Incorrecto", "Un informe pericial perdería validez si concluye antes de explicar la metodología y los hallazgos.")
-        tk.Button(card, text="VALIDAR ESTRUCTURA", command=verificar, bg=COLOR_ACCENT, bd=0, font=("Segoe UI", 9, "bold")).pack(pady=20, ipadx=15, ipady=5)
+        ctk.CTkButton(card, text="VALIDAR ESTRUCTURA", command=verificar, fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_BG_DARK, font=ctk.CTkFont("Segoe UI", 12, "bold")).pack(pady=20)
 
     def cargar_practica_u3_p2(parent):
         for w in parent.winfo_children(): w.destroy()
-        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card = ctk.CTkFrame(parent, fg_color=COLOR_ENTRY_BG, corner_radius=10)
         card.pack(fill="both", expand=True, padx=20, pady=20)
-        tk.Label(card, text="PRÁCTICA 3.2: ANÁLISIS DE TRÁFICO (WIRESHARK SIMULATOR)", font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(15, 5))
-        tk.Label(card, text="Analiza el siguiente volcado de tráfico HTTP sin cifrar y encuentra la contraseña filtrada.", font=("Segoe UI", 10), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).pack(pady=5)
         
-        txt_logs = tk.Text(card, height=6, width=70, bg=COLOR_CARD, fg=COLOR_TEXT_LIGHT, bd=0, font=("Consolas", 9))
+        ctk.CTkLabel(card, text="PRÁCTICA 3.2: ANÁLISIS DE TRÁFICO (WIRESHARK SIMULATOR)", font=ctk.CTkFont("Segoe UI", 14, "bold"), text_color=COLOR_ACCENT).pack(pady=(15, 5))
+        ctk.CTkLabel(card, text="Analiza el siguiente volcado de tráfico HTTP sin cifrar y encuentra la contraseña filtrada.", font=ctk.CTkFont("Segoe UI", 12), text_color=COLOR_TEXT_MUTED).pack(pady=5)
+        
+        txt_logs = ctk.CTkTextbox(card, height=110, width=550, fg_color=COLOR_CARD, text_color=COLOR_TEXT_LIGHT, border_width=0, font=ctk.CTkFont("Consolas", 12))
         txt_logs.pack(pady=10)
         txt_logs.insert(tk.END, "Frame 41: GET /index.html HTTP/1.1\nFrame 42: POST /login.php HTTP/1.1\n          Host: 192.168.1.10\n          Form item: 'username' = 'admin'\n          Form item: 'password' = 's3cr3t_f0r3ns1c'\nFrame 43: HTTP/1.1 302 Found")
-        txt_logs.config(state="disabled")
+        txt_logs.configure(state="disabled")
         
-        tk.Label(card, text="Ingresa la contraseña descubierta:", font=("Segoe UI", 10, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=5)
-        e_pass = tk.Entry(card, bg=COLOR_CARD, fg=COLOR_ACCENT, bd=0, width=30, justify="center", font=("Consolas", 11))
-        e_pass.pack(ipady=4, pady=5)
+        ctk.CTkLabel(card, text="Ingresa la contraseña descubierta:", font=ctk.CTkFont("Segoe UI", 12, "bold"), text_color=COLOR_TEXT_LIGHT).pack(pady=5)
+        e_pass = ctk.CTkEntry(card, fg_color=COLOR_CARD, text_color=COLOR_ACCENT, border_width=0, width=300, justify="center", font=ctk.CTkFont("Consolas", 14))
+        e_pass.pack(pady=5)
         
         def verificar():
             if e_pass.get().strip() == "s3cr3t_f0r3ns1c": messagebox.showinfo("Correcto", "¡Contraseña interceptada con éxito! Esto demuestra el peligro de usar HTTP sin cifrar.")
             else: messagebox.showerror("Incorrecto", "Esa no es la contraseña filtrada en el paquete POST.")
-        tk.Button(card, text="EXTRAER DATO", command=verificar, bg=COLOR_ACCENT, bd=0, font=("Segoe UI", 9, "bold")).pack(pady=15, ipadx=15, ipady=5)
+        ctk.CTkButton(card, text="EXTRAER DATO", command=verificar, fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_BG_DARK, font=ctk.CTkFont("Segoe UI", 12, "bold")).pack(pady=15)
 
     def cargar_practica_u3_p3(parent):
         for w in parent.winfo_children(): w.destroy()
-        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card = ctk.CTkFrame(parent, fg_color=COLOR_ENTRY_BG, corner_radius=10)
         card.pack(fill="both", expand=True, padx=20, pady=20)
-        tk.Label(card, text="PRÁCTICA 3.3: TALLER DE FILE CARVING", font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 15))
-        tk.Label(card, text="Para recuperar un archivo de imagen borrado desde el espacio no asignado (slack space),\ndebes buscar su Firma Hexadecimal (Magic Number) en la cabecera.", font=("Segoe UI", 10, "italic"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).pack(pady=5)
-        tk.Label(card, text="¿Cuál es el Magic Number característico de un archivo JPEG?", font=("Segoe UI", 10, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=15)
+        
+        ctk.CTkLabel(card, text="PRÁCTICA 3.3: TALLER DE FILE CARVING", font=ctk.CTkFont("Segoe UI", 14, "bold"), text_color=COLOR_ACCENT).pack(pady=(20, 15))
+        ctk.CTkLabel(card, text="Para recuperar un archivo de imagen borrado desde el espacio no asignado (slack space),\ndebes buscar su Firma Hexadecimal (Magic Number) en la cabecera.", font=ctk.CTkFont("Segoe UI", 12, "italic"), text_color=COLOR_TEXT_MUTED).pack(pady=5)
+        ctk.CTkLabel(card, text="¿Cuál es el Magic Number característico de un archivo JPEG?", font=ctk.CTkFont("Segoe UI", 12, "bold"), text_color=COLOR_TEXT_LIGHT).pack(pady=15)
         
         var_resp = tk.StringVar(value="")
-        for t, v in [("A) 4D 5A (Cabecera MZ - Ejecutable Windows)", "A"), ("B) 25 50 44 46 (Cabecera %PDF - Documento)", "B"), ("C) FF D8 FF E0 (Cabecera JPEG Standard)", "C")]:
-            tk.Radiobutton(card, text=t, variable=var_resp, value=v, font=("Consolas", 10), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, selectcolor=COLOR_CARD, activebackground=COLOR_ENTRY_BG, activeforeground=COLOR_ACCENT).pack(anchor="w", padx=100, pady=5)
+        opciones = [("A) 4D 5A (Cabecera MZ - Ejecutable Windows)", "A"), ("B) 25 50 44 46 (Cabecera %PDF - Documento)", "B"), ("C) FF D8 FF E0 (Cabecera JPEG Standard)", "C")]
+        for t, v in opciones:
+            ctk.CTkRadioButton(card, text=t, variable=var_resp, value=v, font=ctk.CTkFont("Consolas", 12), fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_TEXT_LIGHT).pack(anchor="w", padx=100, pady=5)
         
         def verificar():
             if var_resp.get() == "C": messagebox.showinfo("Correcto", "¡File Carving Exitoso! FF D8 FF E0 marca el inicio de una imagen JPEG recuperable.")
             elif not var_resp.get(): messagebox.showwarning("Aviso", "Selecciona una firma hexadecimal.")
             else: messagebox.showerror("Incorrecto", "Ese magic number pertenece a otro tipo de archivo.")
-        tk.Button(card, text="APLICAR CARVING", command=verificar, bg=COLOR_ACCENT, bd=0, font=("Segoe UI", 9, "bold")).pack(pady=20, ipadx=15, ipady=5)
+        ctk.CTkButton(card, text="APLICAR CARVING", command=verificar, fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_BG_DARK, font=ctk.CTkFont("Segoe UI", 12, "bold")).pack(pady=20)
 
     def cargar_practica_u3_p4(parent):
         for w in parent.winfo_children(): w.destroy()
-        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card = ctk.CTkFrame(parent, fg_color=COLOR_ENTRY_BG, corner_radius=10)
         card.pack(fill="both", expand=True, padx=20, pady=20)
-        tk.Label(card, text="PRÁCTICA 3.4: ANÁLISIS DE BASE DE DATOS SQLITE", font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 15))
-        tk.Label(card, text="Has montado la base de datos 'msgstore.db' extraída de un teléfono móvil incautado.", font=("Segoe UI", 10, "italic"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).pack(pady=5)
-        tk.Label(card, text="¿Qué instrucción SQL te permite visualizar TODOS los mensajes de la tabla 'messages_backup' sin alterarlos?", font=("Segoe UI", 10, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=15)
+        
+        ctk.CTkLabel(card, text="PRÁCTICA 3.4: ANÁLISIS DE BASE DE DATOS SQLITE", font=ctk.CTkFont("Segoe UI", 14, "bold"), text_color=COLOR_ACCENT).pack(pady=(20, 15))
+        ctk.CTkLabel(card, text="Has montado la base de datos 'msgstore.db' extraída de un teléfono móvil incautado.", font=ctk.CTkFont("Segoe UI", 12, "italic"), text_color=COLOR_TEXT_MUTED).pack(pady=5)
+        ctk.CTkLabel(card, text="¿Qué instrucción SQL te permite visualizar TODOS los mensajes de la tabla 'messages_backup' sin alterarlos?", font=ctk.CTkFont("Segoe UI", 12, "bold"), text_color=COLOR_TEXT_LIGHT).pack(pady=15)
         
         var_resp = tk.StringVar(value="")
-        for t, v in [("A) DROP TABLE messages_backup;", "A"), ("B) SELECT * FROM messages_backup;", "B"), ("C) UPDATE messages_backup SET status='read';", "C")]:
-            tk.Radiobutton(card, text=t, variable=var_resp, value=v, font=("Consolas", 10), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, selectcolor=COLOR_CARD, activebackground=COLOR_ENTRY_BG, activeforeground=COLOR_ACCENT).pack(anchor="w", padx=100, pady=5)
+        opciones = [("A) DROP TABLE messages_backup;", "A"), ("B) SELECT * FROM messages_backup;", "B"), ("C) UPDATE messages_backup SET status='read';", "C")]
+        for t, v in opciones:
+            ctk.CTkRadioButton(card, text=t, variable=var_resp, value=v, font=ctk.CTkFont("Consolas", 12), fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_TEXT_LIGHT).pack(anchor="w", padx=100, pady=5)
         
         def verificar():
             if var_resp.get() == "B": messagebox.showinfo("Consulta Exitosa", "Correcto. El comando SELECT extrae y visualiza la información de forma segura y en modo lectura.")
             elif not var_resp.get(): messagebox.showwarning("Aviso", "Selecciona un comando.")
             else: messagebox.showerror("Peligro Forense", "¡Comando Destructivo! Ese comando alteraría o eliminaría la evidencia original de la base de datos.")
-        tk.Button(card, text="EJECUTAR QUERY", command=verificar, bg=COLOR_ACCENT, bd=0, font=("Segoe UI", 9, "bold")).pack(pady=20, ipadx=15, ipady=5)
+        ctk.CTkButton(card, text="EJECUTAR QUERY", command=verificar, fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_BG_DARK, font=ctk.CTkFont("Segoe UI", 12, "bold")).pack(pady=20)
 
     def cargar_practica_u4_p1(parent):
         for w in parent.winfo_children(): w.destroy()
-        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card = ctk.CTkFrame(parent, fg_color=COLOR_ENTRY_BG, corner_radius=10)
         card.pack(fill="both", expand=True, padx=20, pady=20)
-        tk.Label(card, text="PRÁCTICA 4.1: SIMULADOR DE TRIAGE E INCIDENTES", font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 15))
-        tk.Label(card, text="Escenario: Suena la alarma corporativa. Varios servidores muestran un mensaje de cifrado por Ransomware.", font=("Segoe UI", 10, "italic"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).pack(pady=5)
-        tk.Label(card, text="¿Cuál es la medida de contención (Triage) inicial más crítica para frenar el ataque sin destruir RAM?", font=("Segoe UI", 10, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=15)
+        
+        ctk.CTkLabel(card, text="PRÁCTICA 4.1: SIMULADOR DE TRIAGE E INCIDENTES", font=ctk.CTkFont("Segoe UI", 14, "bold"), text_color=COLOR_ACCENT).pack(pady=(20, 15))
+        ctk.CTkLabel(card, text="Escenario: Suena la alarma corporativa. Varios servidores muestran un mensaje de cifrado por Ransomware.", font=ctk.CTkFont("Segoe UI", 12, "italic"), text_color=COLOR_TEXT_MUTED).pack(pady=5)
+        ctk.CTkLabel(card, text="¿Cuál es la medida de contención (Triage) inicial más crítica para frenar el ataque sin destruir RAM?", font=ctk.CTkFont("Segoe UI", 12, "bold"), text_color=COLOR_TEXT_LIGHT).pack(pady=15)
         
         var_resp = tk.StringVar(value="")
-        for t, v in [("A) Desconectar inmediatamente los cables de red y apagar interfaces Wi-Fi.", "A"), ("B) Apagar todos los servidores desde el botón de encendido.", "B"), ("C) Formatear los discos para borrar el malware.", "C")]:
-            tk.Radiobutton(card, text=t, variable=var_resp, value=v, font=("Segoe UI", 9), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, selectcolor=COLOR_CARD, activebackground=COLOR_ENTRY_BG, activeforeground=COLOR_ACCENT).pack(anchor="w", padx=100, pady=5)
+        opciones = [("A) Desconectar inmediatamente los cables de red y apagar interfaces Wi-Fi.", "A"), ("B) Apagar todos los servidores desde el botón de encendido.", "B"), ("C) Formatear los discos para borrar el malware.", "C")]
+        for t, v in opciones:
+            ctk.CTkRadioButton(card, text=t, variable=var_resp, value=v, font=ctk.CTkFont("Segoe UI", 12), fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_TEXT_LIGHT).pack(anchor="w", padx=100, pady=5)
         
         def verificar():
             if var_resp.get() == "A": messagebox.showinfo("Contención Exitosa", "¡Correcto! Aislar lógicamente el equipo de la red frena la propagación del Ransomware y mantiene viva la memoria RAM para extraer las claves de cifrado.")
             elif not var_resp.get(): messagebox.showwarning("Aviso", "Selecciona una opción de Triage.")
             else: messagebox.showerror("Error Crítico", "Esa acción destruiría evidencia vital (RAM) o eliminaría datos corporativos irreversiblemente.")
-        tk.Button(card, text="APLICAR MEDIDA", command=verificar, bg=COLOR_ACCENT, bd=0, font=("Segoe UI", 9, "bold")).pack(pady=20, ipadx=15, ipady=5)
+        ctk.CTkButton(card, text="APLICAR MEDIDA", command=verificar, fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_BG_DARK, font=ctk.CTkFont("Segoe UI", 12, "bold")).pack(pady=20)
 
     def cargar_practica_u4_p3(parent):
         for w in parent.winfo_children(): w.destroy()
-        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card = ctk.CTkFrame(parent, fg_color=COLOR_ENTRY_BG, corner_radius=10)
         card.pack(fill="both", expand=True, padx=20, pady=20)
-        tk.Label(card, text="PRÁCTICA 4.3: LÍNEA DE TIEMPO (TIMELINE ANALYSIS)", font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 15))
-        tk.Label(card, text="Se han extraído 3 registros de sistemas distintos con las siguientes marcas de tiempo. Ordena la secuencia del ataque:", font=("Segoe UI", 10), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=15)
         
-        txt_logs = tk.Text(card, height=4, width=60, bg=COLOR_CARD, fg=COLOR_TEXT_MUTED, bd=0, font=("Consolas", 9))
+        ctk.CTkLabel(card, text="PRÁCTICA 4.3: LÍNEA DE TIEMPO (TIMELINE ANALYSIS)", font=ctk.CTkFont("Segoe UI", 14, "bold"), text_color=COLOR_ACCENT).pack(pady=(20, 15))
+        ctk.CTkLabel(card, text="Se han extraído 3 registros de sistemas distintos con las siguientes marcas de tiempo. Ordena la secuencia del ataque:", font=ctk.CTkFont("Segoe UI", 12), text_color=COLOR_TEXT_LIGHT).pack(pady=15)
+        
+        txt_logs = ctk.CTkTextbox(card, height=80, width=500, fg_color=COLOR_CARD, text_color=COLOR_TEXT_MUTED, border_width=0, font=ctk.CTkFont("Consolas", 12))
         txt_logs.pack(pady=5)
         txt_logs.insert(tk.END, "Log 1 (Firewall): [14:05:00] Bloqueo de escaneo de puertos.\nLog 2 (Sistema):  [14:15:30] Creación de tarea programada.\nLog 3 (Web DB):   [14:10:12] Inyección SQL exitosa.")
-        txt_logs.config(state="disabled")
+        txt_logs.configure(state="disabled")
 
         var_resp = tk.StringVar(value="")
         opciones = [
@@ -662,31 +672,33 @@ def abrir_panel_alumno(usuario):
             ("C) Inyección SQL -> Tarea Programada -> Escaneo", "C")
         ]
         for t, v in opciones:
-            tk.Radiobutton(card, text=t, variable=var_resp, value=v, font=("Segoe UI", 9), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, selectcolor=COLOR_CARD, activebackground=COLOR_ENTRY_BG, activeforeground=COLOR_ACCENT).pack(anchor="w", padx=100, pady=5)
+            ctk.CTkRadioButton(card, text=t, variable=var_resp, value=v, font=ctk.CTkFont("Segoe UI", 12), fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_TEXT_LIGHT).pack(anchor="w", padx=100, pady=5)
         
         def verificar():
             if var_resp.get() == "B": messagebox.showinfo("Timeline Correcto", "¡Exacto! El atacante primero escaneó la red (14:05), luego vulneró la web (14:10) y finalmente implantó persistencia (14:15).")
             elif not var_resp.get(): messagebox.showwarning("Aviso", "Selecciona una secuencia.")
             else: messagebox.showerror("Incorrecto", "Revisa el orden cronológico estricto de los logs.")
-        tk.Button(card, text="VALIDAR TIMELINE", command=verificar, bg=COLOR_ACCENT, bd=0, font=("Segoe UI", 9, "bold")).pack(pady=20, ipadx=15, ipady=5)
+        ctk.CTkButton(card, text="VALIDAR TIMELINE", command=verificar, fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_BG_DARK, font=ctk.CTkFont("Segoe UI", 12, "bold")).pack(pady=20)
 
     def cargar_practica_u4_p4(parent):
         for w in parent.winfo_children(): w.destroy()
-        card = tk.Frame(parent, bg=COLOR_ENTRY_BG, bd=0)
+        card = ctk.CTkFrame(parent, fg_color=COLOR_ENTRY_BG, corner_radius=10)
         card.pack(fill="both", expand=True, padx=20, pady=20)
-        tk.Label(card, text="PRÁCTICA 4.4: ATRIBUCIÓN Y HUELLAS (IoC)", font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 15))
-        tk.Label(card, text="Dentro de la inteligencia de amenazas (Threat Intelligence), un IoC sirve para identificar software o actores maliciosos.", font=("Segoe UI", 10, "italic"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).pack(pady=5)
-        tk.Label(card, text="¿Cuál de los siguientes ejemplos es un Indicador de Compromiso (IoC) técnico válido?", font=("Segoe UI", 10, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=15)
+        
+        ctk.CTkLabel(card, text="PRÁCTICA 4.4: ATRIBUCIÓN Y HUELLAS (IoC)", font=ctk.CTkFont("Segoe UI", 14, "bold"), text_color=COLOR_ACCENT).pack(pady=(20, 15))
+        ctk.CTkLabel(card, text="Dentro de la inteligencia de amenazas (Threat Intelligence), un IoC sirve para identificar software o actores maliciosos.", font=ctk.CTkFont("Segoe UI", 12, "italic"), text_color=COLOR_TEXT_MUTED).pack(pady=5)
+        ctk.CTkLabel(card, text="¿Cuál de los siguientes ejemplos es un Indicador de Compromiso (IoC) técnico válido?", font=ctk.CTkFont("Segoe UI", 12, "bold"), text_color=COLOR_TEXT_LIGHT).pack(pady=15)
         
         var_resp = tk.StringVar(value="")
-        for t, v in [("A) El modelo físico del teclado utilizado en la oficina.", "A"), ("B) La firma hash SHA-256 de un archivo ejecutable no reconocido.", "B"), ("C) El sistema operativo Windows 10.", "C")]:
-            tk.Radiobutton(card, text=t, variable=var_resp, value=v, font=("Segoe UI", 9), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT, selectcolor=COLOR_CARD, activebackground=COLOR_ENTRY_BG, activeforeground=COLOR_ACCENT).pack(anchor="w", padx=100, pady=5)
+        opciones = [("A) El modelo físico del teclado utilizado en la oficina.", "A"), ("B) La firma hash SHA-256 de un archivo ejecutable no reconocido.", "B"), ("C) El sistema operativo Windows 10.", "C")]
+        for t, v in opciones:
+            ctk.CTkRadioButton(card, text=t, variable=var_resp, value=v, font=ctk.CTkFont("Segoe UI", 12), fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_TEXT_LIGHT).pack(anchor="w", padx=100, pady=5)
         
         def verificar():
             if var_resp.get() == "B": messagebox.showinfo("Atribución Correcta", "¡Correcto! Una firma Hash única asociada a un malware es un IoC clave para rastrear y atribuir ataques en ciberseguridad.")
             elif not var_resp.get(): messagebox.showwarning("Aviso", "Selecciona una opción.")
             else: messagebox.showerror("Incorrecto", "Un IoC debe ser una huella digital técnica y específica de una amenaza, no hardware general o sistemas genéricos.")
-        tk.Button(card, text="IDENTIFICAR IoC", command=verificar, bg=COLOR_ACCENT, bd=0, font=("Segoe UI", 9, "bold")).pack(pady=20, ipadx=15, ipady=5)
+        ctk.CTkButton(card, text="IDENTIFICAR IoC", command=verificar, fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_BG_DARK, font=ctk.CTkFont("Segoe UI", 12, "bold")).pack(pady=20)
 
     # -------------------------------------------------------------
     # EVENTO AL SELECCIONAR UN TEMA EN LA LISTA
@@ -702,38 +714,32 @@ def abrir_panel_alumno(usuario):
         tema_activo["unidad"] = t[1]
         tema_activo["titulo"] = t[2]
 
-        lbl_titulo_tema.config(text=f"UNIDAD {t[1]}: {t[2]}")
+        lbl_titulo_tema.configure(text=f"UNIDAD {t[1]}: {t[2]}")
 
         # 1. Cargar Teoría Formateada con Subtemas
-        area_teoria.config(state="normal")
+        area_teoria.configure(state="normal")
         area_teoria.delete("1.0", tk.END)
 
         contenido_bd = t[3]
         num_unidad = t[1]
 
-        # Si el administrador guardó contenido en la base de datos, lo mostramos
         if contenido_bd and contenido_bd.strip():
             for linea in contenido_bd.split('\n'):
-                # Detectar automáticamente si la línea empieza con un número como "3.1" o "4.2.1"
                 if re.match(r'^\d+\.\d+', linea.strip()):
-                    # Si tiene dos puntos (ej 1.5.1), es un sub-subtítulo (azul claro), sino subtítulo principal (cian)
                     tag = "subsubtitulo" if len(linea.strip().split(" ")[0].split(".")) > 2 else "subtitulo"
                     area_teoria.insert(tk.END, f"{linea}\n", tag)
                 else:
                     area_teoria.insert(tk.END, f"{linea}\n", "cuerpo")
 
-        # Si la BD está vacía, intentamos cargar la unidad hardcodeada (como la 1)
         elif num_unidad in TEORIA_DETALLADA:
             for sub_titulo, sub_contenido in TEORIA_DETALLADA[num_unidad]:
                 tag = "subsubtitulo" if len(sub_titulo.split(" ")[0].split(".")) > 2 else "subtitulo"
                 area_teoria.insert(tk.END, f"{sub_titulo}\n", tag)
                 area_teoria.insert(tk.END, f"{sub_contenido}\n\n", "cuerpo")
         else:
-            area_teoria.insert(tk.END,
-                               "Contenido teórico en elaboración. El administrador aún no ha subido información para esta unidad.\n",
-                               "cuerpo")
+            area_teoria.insert(tk.END, "Contenido teórico en elaboración. El administrador aún no ha subido información para esta unidad.\n", "cuerpo")
 
-        area_teoria.config(state="disabled")
+        area_teoria.configure(state="disabled")
 
         # 2. Cargar Cuestionario
         for w in scrollable_quiz_inner.winfo_children():
@@ -744,33 +750,31 @@ def abrir_panel_alumno(usuario):
         respuestas_usuario.clear()
 
         if not preguntas_actuales:
-            tk.Label(scrollable_quiz_inner, text="No hay preguntas registradas para este tema.",
-                     font=("Segoe UI", 11, "italic"), bg=COLOR_CARD, fg=COLOR_TEXT_MUTED).pack(pady=30)
+            ctk.CTkLabel(scrollable_quiz_inner, text="No hay preguntas registradas para este tema.",
+                         font=ctk.CTkFont("Segoe UI", 13, "italic"), text_color=COLOR_TEXT_MUTED).pack(pady=30)
         else:
             for p_idx, p in enumerate(preguntas_actuales):
                 p_id, preg, op_a, op_b, op_c, op_d, resp_correcta = p
 
-                f_preg = tk.Frame(scrollable_quiz_inner, bg=COLOR_CARD)
+                f_preg = ctk.CTkFrame(scrollable_quiz_inner, fg_color=COLOR_CARD, corner_radius=10)
                 f_preg.pack(fill="x", expand=True, pady=10, anchor="w")
 
-                tk.Label(f_preg, text=f"{p_idx + 1}. {preg}", font=("Segoe UI", 10, "bold"), bg=COLOR_CARD,
-                         fg=COLOR_TEXT_LIGHT, wraplength=700, justify="left").pack(anchor="w")
+                ctk.CTkLabel(f_preg, text=f"{p_idx + 1}. {preg}", font=ctk.CTkFont("Segoe UI", 13, "bold"),
+                             text_color=COLOR_TEXT_LIGHT, wraplength=700, justify="left").pack(anchor="w", padx=15, pady=(10, 5))
 
                 var_resp = tk.StringVar(value="")
                 respuestas_usuario[p_id] = var_resp
 
                 opciones = [("A) " + op_a, "A"), ("B) " + op_b, "B"), ("C) " + op_c, "C"), ("D) " + op_d, "D")]
                 for txt_o, val_o in opciones:
-                    tk.Radiobutton(f_preg, text=txt_o, value=val_o, variable=var_resp, font=("Segoe UI", 9),
-                                   bg=COLOR_CARD, fg=COLOR_TEXT_MUTED, selectcolor=COLOR_ENTRY_BG,
-                                   activebackground=COLOR_CARD, activeforeground=COLOR_ACCENT, cursor="hand2").pack(
-                        anchor="w", padx=15, pady=2)
+                    ctk.CTkRadioButton(f_preg, text=txt_o, value=val_o, variable=var_resp, font=ctk.CTkFont("Segoe UI", 12),
+                                       fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_TEXT_MUTED).pack(
+                        anchor="w", padx=30, pady=5)
 
             def evaluar():
                 sin_responder = sum(1 for p in preguntas_actuales if not respuestas_usuario[p[0]].get())
                 if sin_responder > 0:
-                    if not messagebox.askyesno("Preguntas pendientes",
-                                               f"Tienes {sin_responder} pregunta(s) sin responder. ¿Deseas enviar el cuestionario de todos modos?"):
+                    if not messagebox.askyesno("Preguntas pendientes", f"Tienes {sin_responder} pregunta(s) sin responder. ¿Deseas enviar el cuestionario de todos modos?"):
                         return
 
                 correctas = sum(1 for p in preguntas_actuales if respuestas_usuario[p[0]].get() == p[6])
@@ -779,15 +783,12 @@ def abrir_panel_alumno(usuario):
                     return
                 puntaje = int((correctas / total) * 100)
                 guardar_calificacion(usuario, tema_activo["id"], puntaje)
-                messagebox.showinfo("Evaluación Finalizada",
-                                    f"Tema: Unidad {tema_activo['unidad']}\nAciertos: {correctas}/{total}\nCalificación: {puntaje}/100")
+                messagebox.showinfo("Evaluación Finalizada", f"Tema: Unidad {tema_activo['unidad']}\nAciertos: {correctas}/{total}\nCalificación: {puntaje}/100")
                 actualizar_tabla_historial()
 
-            btn_enviar = tk.Button(scrollable_quiz_inner, text="ENVIAR RESPUESTAS DEL TEMA", command=evaluar,
-                                   font=("Segoe UI", 10, "bold"), bg=COLOR_ACCENT, fg=COLOR_BG_DARK, relief="flat",
-                                   cursor="hand2", bd=0)
-            btn_enviar.pack(pady=20, ipady=8, ipadx=20)
-            aplicar_hover(btn_enviar, COLOR_ACCENT, COLOR_ACCENT_HOVER)
+            btn_enviar = ctk.CTkButton(scrollable_quiz_inner, text="ENVIAR RESPUESTAS DEL TEMA", command=evaluar,
+                                       font=ctk.CTkFont("Segoe UI", 13, "bold"), fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_BG_DARK, cursor="hand2")
+            btn_enviar.pack(pady=20)
 
         # --- ENRUTAMIENTO DINÁMICO DE LAS 16 PRÁCTICAS ---
         for w in menu_practicas.winfo_children(): w.destroy()
@@ -795,9 +796,9 @@ def abrir_panel_alumno(usuario):
 
         def cargar_practica_generica(parent, titulo, descripcion):
             for w in parent.winfo_children(): w.destroy()
-            tk.Label(parent, text=titulo, font=("Segoe UI", 12, "bold"), bg=COLOR_ENTRY_BG, fg=COLOR_ACCENT).pack(pady=(20, 10))
-            tk.Label(parent, text=descripcion, font=("Segoe UI", 10), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_LIGHT).pack(pady=5)
-            tk.Label(parent, text="[Módulo de práctica en desarrollo]", font=("Consolas", 11, "italic"), bg=COLOR_ENTRY_BG, fg=COLOR_TEXT_MUTED).pack(pady=30)
+            ctk.CTkLabel(parent, text=titulo, font=ctk.CTkFont("Segoe UI", 14, "bold"), text_color=COLOR_ACCENT).pack(pady=(20, 10))
+            ctk.CTkLabel(parent, text=descripcion, font=ctk.CTkFont("Segoe UI", 12), text_color=COLOR_TEXT_LIGHT).pack(pady=5)
+            ctk.CTkLabel(parent, text="[Módulo de práctica en desarrollo]", font=ctk.CTkFont("Consolas", 12, "italic"), text_color=COLOR_TEXT_MUTED).pack(pady=30)
 
         RUTAS_PRACTICAS = {
             1: [
@@ -830,16 +831,14 @@ def abrir_panel_alumno(usuario):
         
         if practicas_unidad:
             for titulo, func in practicas_unidad:
-                btn = tk.Button(menu_practicas, text=titulo, font=("Segoe UI", 9, "bold"), bg=COLOR_BORDER, fg=COLOR_TEXT_LIGHT, bd=0, cursor="hand2", command=lambda f=func: f(container_practica))
-                btn.pack(side="left", padx=5, ipady=5, ipadx=10)
-                aplicar_hover(btn, COLOR_BORDER, COLOR_ACCENT_HOVER)
+                btn = ctk.CTkButton(menu_practicas, text=titulo, font=ctk.CTkFont("Segoe UI", 12, "bold"), fg_color=COLOR_BORDER, hover_color=COLOR_ENTRY_BG, text_color=COLOR_TEXT_LIGHT, cursor="hand2", command=lambda f=func: f(container_practica))
+                btn.pack(side="left", padx=5)
             practicas_unidad[0][1](container_practica) # Carga la primera por defecto
         else:
-            tk.Label(container_practica, text=f"Prácticas no definidas para la Unidad {t[1]}.", font=("Segoe UI", 11, "italic"), bg=COLOR_CARD, fg=COLOR_TEXT_MUTED).pack(pady=50)
-        # ------------------------------------------------------------
+            ctk.CTkLabel(container_practica, text=f"Prácticas no definidas para la Unidad {t[1]}.", font=ctk.CTkFont("Segoe UI", 13, "italic"), text_color=COLOR_TEXT_MUTED).pack(pady=50)
 
         # Seleccionar por defecto la primera pestaña (Explicación)
-        sub_pestanas.select(0)
+        sub_pestanas.set(tab_teoria_name)
 
     listbox_temas.bind("<<ListboxSelect>>", cargar_detalle_tema)
 
@@ -848,21 +847,16 @@ def abrir_panel_alumno(usuario):
         listbox_temas.selection_set(0)
         listbox_temas.event_generate("<<ListboxSelect>>")
 
-    ventana.bind("<Escape>", lambda e: ventana.destroy())
-    ventana.after(100, animar_entrada)
+    ventana.bind("<Escape>", lambda e: ventana.quit())
 
-
-    def abrir_practica(self, id_practica, titulo):
-        # Enrutamiento según el ID de la práctica en la base de datos
-        if id_practica == 6: # Unidad 2, Práctica 2: Hashes
-            from tools.hash_simulator import HashSimulatorApp
-            ventana = tk.Toplevel(self.root)
-            HashSimulatorApp(ventana)
-            
-        elif id_practica == 14: # Unidad 4, Práctica 2: Análisis de Registros de Eventos de Windows
-            from tools.windows_logs_simulator import WindowsLogsSimulatorApp
-            ventana = tk.Toplevel(self.root)
-            WindowsLogsSimulatorApp(ventana)
-            
-        else:
-            messagebox.showinfo("En desarrollo", f"La práctica '{titulo}' está en proceso de integración.")
+def abrir_practica(self, id_practica, titulo):
+    if id_practica == 6: 
+        from tools.hash_simulator import HashSimulatorApp
+        ventana = ctk.CTkToplevel(self.root)
+        HashSimulatorApp(ventana)
+    elif id_practica == 14: 
+        from tools.windows_logs_simulator import WindowsLogsSimulatorApp
+        ventana = ctk.CTkToplevel(self.root)
+        WindowsLogsSimulatorApp(ventana)
+    else:
+        messagebox.showinfo("En desarrollo", f"La práctica '{titulo}' está en proceso de integración.")
