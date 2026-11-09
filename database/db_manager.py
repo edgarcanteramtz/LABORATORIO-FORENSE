@@ -195,3 +195,46 @@ class DBManager:
     def obtener_practicas_por_unidad(self, unidad):
         self.cursor.execute('SELECT id, numero_practica, titulo, descripcion FROM practicas WHERE unidad = ?', (unidad,))
         return self.cursor.fetchall()
+
+
+# Ruta centralizada de la base de datos según tu estructura
+RUTA_DB = os.path.join("database", "lab_forense.db")
+
+def inicializar_temas():
+    conexion = sqlite3.connect(RUTA_DB)
+    cursor = conexion.cursor()
+
+    # Verificar o crear la tabla temas
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS temas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            unidad INTEGER,
+            titulo TEXT,
+            contenido_teorico TEXT
+        )
+    """)
+
+    # Insertar las 4 unidades oficiales del curso forense
+    temas_unidades = [
+        (1, "Fundamentos y Normativa de la Informática Forense", "Teoría y normativas de la Unidad 1"),
+        (2, "Metodología del Análisis Forense Informático", "Proceso metodológico de la Unidad 2"),
+        (3, "Herramientas de Análisis Forense Digital", "Uso de herramientas de la Unidad 3"),
+        (4, "Evidencia, Respuesta a Incidentes y Atribución", "Análisis de incidentes y atribución de la Unidad 4")
+    ]
+
+    for unidad, titulo, teoria in temas_unidades:
+        # Opcional: verificar si ya existe para evitar duplicados
+        cursor.execute("SELECT id FROM temas WHERE unidad = ?", (unidad,))
+        existe = cursor.fetchone()
+        if not existe:
+            cursor.execute("""
+                INSERT INTO temas (unidad, titulo, contenido_teorico) 
+                VALUES (?, ?, ?)
+            """, (unidad, titulo, teoria))
+
+    conexion.commit()
+    conexion.close()
+    print("¡Base de datos actualizada con éxito para las 4 unidades!")
+
+if __name__ == "__main__":
+    inicializar_temas()
