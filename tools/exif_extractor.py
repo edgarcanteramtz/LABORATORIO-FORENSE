@@ -2,67 +2,76 @@ import os
 
 def extraer_metadatos_imagen(ruta_imagen):
     """
-    Extrae metadatos generales, cabeceras EXIF y datos de información de una imagen.
-    Soporta JPG, JPEG, PNG, TIFF, etc.
+    Extractor de metadatos robusto y a prueba de errores para imágenes forenses.
+    Soporta JPG, JPEG, PNG, WEBP, TIFF, etc., manejando excepciones de forma limpia.
     """
     metadatos = {}
 
     if not os.path.exists(ruta_imagen):
-        return {"Error": "El archivo especificado no existe."}
+        return {"Error": "El archivo especificado no existe en la ruta indicada."}
 
-    # Metadatos a nivel de sistema de archivos
-    tamaño_bytes = os.path.getsize(ruta_imagen)
-    metadatos["Nombre Archivo"] = os.path.basename(ruta_imagen)
-    metadatos["Ruta"] = ruta_imagen
-    metadatos["Tamaño"] = f"{round(tamaño_bytes / 1024, 2)} KB"
+    try:
+        # Metadatos del sistema de archivos
+        tamaño_bytes = os.path.getsize(ruta_imagen)
+        metadatos["Archivo"] = os.path.basename(ruta_imagen)
+        metadatos["Ruta Completa"] = ruta_imagen
+        metadatos["Tamaño en Disco"] = f"{round(tamaño_bytes / 1024, 2)} KB"
+    except Exception as e:
+        metadatos["Error Sistema Archivos"] = str(e)
 
     try:
         from PIL import Image
         from PIL.ExifTags import TAGS
 
         with Image.open(ruta_imagen) as img:
-            metadatos["Formato"] = img.format
-            metadatos["Modo de Color"] = img.mode
-            metadatos["Dimensiones"] = f"{img.width} x {img.height} px"
+            metadatos["Formato de Imagen"] = str(img.format)
+            metadatos["Modo de Color"] = str(img.mode)
+            metadatos["Dimensiones (Resolución)"] = f"{img.width} x {img.height} píxeles"
 
             datos_exif = {}
 
-            # 1. Extraer EXIF con método moderno (Pillow 7+)
+            # Extracción segura de EXIF estándar
             try:
                 exif_data = img.getexif()
                 if exif_data:
                     for tag_id, valor in exif_data.items():
                         etiqueta = TAGS.get(tag_id, tag_id)
-                        if isinstance(valor, bytes) and len(valor) > 40:
-                            valor = "<Datos Binarios Omitidos>"
+                        # Limpiar valores binarios largos para evitar fallos de renderizado
+                        if isinstance(valor, bytes):
+                            valor = f"<Datos Binarios / {len(valor)} bytes>"
                         datos_exif[str(etiqueta)] = str(valor)
             except Exception:
                 pass
 
-            # 2. Respaldar con método legacy para JPEGs si el primero no devolvió datos
+            # Método alternativo para JPEGs legacy
             if not datos_exif and hasattr(img, '_getexif'):
                 try:
                     exif_raw = img._getexif()
                     if exif_raw:
                         for tag_id, valor in exif_raw.items():
                             etiqueta = TAGS.get(tag_id, tag_id)
-                            if isinstance(valor, bytes) and len(valor) > 40:
-                                valor = "<Datos Binarios Omitidos>"
+                            if isinstance(valor, bytes):
+                                valor = f"<Datos Binarios / {len(valor)} bytes>"
                             datos_exif[str(etiqueta)] = str(valor)
                 except Exception:
                     pass
 
-            # 3. Extraer bloque .info (útil para PNG, software de edición, comentarios)
+            # Extraer bloques .info (muy útil para PNG, metadatos web o comentarios)
             if hasattr(img, 'info') and img.info:
                 for k, v in img.info.items():
-                    if k.lower() != 'exif' and isinstance(v, (str, int, float)):
-                        datos_exif[f"Info ({k})"] = str(v)
+                    if k.lower() != 'exif':
+                        if isinstance(v, bytes):
+                            v = f"<Bytes / {len(v)}>"
+                        datos_exif[f"Info adicional ({k})"] = str(v)
 
-            metadatos["EXIF"] = datos_exif if datos_exif else "Sin datos EXIF (imagen comprimida, PNG o web)."
+            if datos_exif:
+                metadatos["EXIF / Metadatos Internos"] = datos_exif
+            else:
+                metadatos["EXIF / Metadatos Internos"] = "La imagen no contiene etiquetas EXIF o fueron depuradas (imagen limpia)."
 
     except ImportError:
-        metadatos["Nota"] = "Para extracción EXIF avanzada instala Pillow (pip install pillow)."
+        metadatos["Error de Dependencia"] = "La librería Pillow no está instalada correctamente."
     except Exception as e:
-        metadatos["Error EXIF"] = f"No se pudieron leer datos EXIF: {str(e)}"
+        metadatos["Error de Lectura de Imagen"] = f"El archivo no es una imagen válida o está dañado: {str(e)}"
 
     return metadatos
