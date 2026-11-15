@@ -158,13 +158,102 @@ def obtener_calificaciones_usuario(usuario):
 
 
 # ==========================================
+# MODAL PERSONALIZADO DE CIERRE DE SESIÓN
+# ==========================================
+def confirmar_cierre_sesion_hud(parent):
+    resultado = {"confirmado": False}
+    
+    dialog = ctk.CTkToplevel(parent)
+    dialog.title("")
+    dialog.geometry("440x220")
+    dialog.configure(fg_color=COLOR_BG_DARK)
+    dialog.overrideredirect(True)
+    dialog.attributes("-alpha", 0.0)
+    dialog.grab_set()
+
+    parent.update_idletasks()
+    x = parent.winfo_x() + (parent.winfo_width() // 2) - 220
+    y = parent.winfo_y() + (parent.winfo_height() // 2) - 110
+    dialog.geometry(f"+{x}+{y}")
+
+    card_modal = ctk.CTkFrame(dialog, fg_color=COLOR_CARD, border_color=COLOR_ACCENT, border_width=1, corner_radius=12)
+    card_modal.pack(fill="both", expand=True, padx=10, pady=10)
+
+    ctk.CTkLabel(card_modal, text="⚠️ CONFIRMAR CIERRE DE SESIÓN", font=ctk.CTkFont("Segoe UI", 15, "bold"), text_color=COLOR_ACCENT).pack(pady=(22, 8))
+    
+    ctk.CTkLabel(card_modal, text="¿Estás seguro de que deseas cerrar sesión\ny regresar al panel principal de acceso?", 
+                 font=ctk.CTkFont("Segoe UI", 12), text_color=COLOR_TEXT_LIGHT, justify="center").pack(pady=(0, 20))
+
+    f_btns = ctk.CTkFrame(card_modal, fg_color="transparent")
+    f_btns.pack(pady=(0, 15))
+
+    id_anim_dialog = None
+    def animar_aparicion(alpha=0.0):
+        nonlocal id_anim_dialog
+        if alpha < 1.0:
+            alpha += 0.1
+            dialog.attributes("-alpha", alpha)
+            id_anim_dialog = dialog.after(15, lambda: animar_aparicion(alpha))
+
+    def cancelar():
+        if id_anim_dialog:
+            try: dialog.after_cancel(id_anim_dialog)
+            except: pass
+        resultado["confirmado"] = False
+        dialog.destroy()
+
+    def aceptar():
+        if id_anim_dialog:
+            try: dialog.after_cancel(id_anim_dialog)
+            except: pass
+        resultado["confirmado"] = True
+        dialog.destroy()
+
+    btn_cancelar = ctk.CTkButton(f_btns, text="Cancelar", command=cancelar, width=130, height=38,
+                                 fg_color=COLOR_ENTRY_BG, hover_color=COLOR_BORDER, text_color=COLOR_TEXT_LIGHT, 
+                                 font=ctk.CTkFont("Segoe UI", 12, "bold"), corner_radius=8, cursor="hand2")
+    btn_cancelar.pack(side="left", padx=10)
+
+    btn_aceptar = ctk.CTkButton(f_btns, text="Sí, Cerrar Sesión", command=aceptar, width=140, height=38,
+                                fg_color=COLOR_DANGER, hover_color=COLOR_DANGER_HOVER, text_color=COLOR_TEXT_LIGHT, 
+                                font=ctk.CTkFont("Segoe UI", 12, "bold"), corner_radius=8, cursor="hand2")
+    btn_aceptar.pack(side="left", padx=10)
+
+    animar_aparicion()
+    parent.wait_window(dialog)
+    return resultado["confirmado"]
+
+
+# ==========================================
 # INTERFAZ GRÁFICA DEL ESTUDIANTE
 # ==========================================
 def abrir_panel_alumno(usuario):
-    ventana = ctk.CTkToplevel()
+    ventana = ctk.CTk()
     ventana.title(f"LAB VISUAL FORENSE - Módulo Guiado ({usuario})")
     ventana.attributes('-fullscreen', True)
     ventana.configure(fg_color=COLOR_BG_DARK)
+    ventana.attributes("-alpha", 0.0)
+
+    sesion_cerrada = {"estado": False}
+    id_animacion = None
+
+    def animar_entrada(alpha=0.0):
+        nonlocal id_animacion
+        if alpha < 1.0:
+            alpha += 0.05
+            ventana.attributes("-alpha", alpha)
+            id_animacion = ventana.after(20, lambda: animar_entrada(alpha))
+
+    def cerrar_sesion():
+        if confirmar_cierre_sesion_hud(ventana):
+            if id_animacion is not None:
+                try:
+                    ventana.after_cancel(id_animacion)
+                except Exception:
+                    pass
+            
+            sesion_cerrada["estado"] = True
+            ventana.destroy()
 
     crear_barra_titulo(ventana, COLOR_BG_DARK)
 
@@ -194,7 +283,7 @@ def abrir_panel_alumno(usuario):
     for t in temas:
         listbox_temas.insert("end", f" Unidad {t[1]}: {t[2]}")
 
-    btn_cerrar = ctk.CTkButton(sidebar, text="CERRAR SESIÓN", command=ventana.quit, font=ctk.CTkFont("Segoe UI", 12, "bold"),
+    btn_cerrar = ctk.CTkButton(sidebar, text="CERRAR SESIÓN", command=cerrar_sesion, font=ctk.CTkFont("Segoe UI", 12, "bold"),
                                fg_color=COLOR_DANGER, hover_color=COLOR_DANGER_HOVER, text_color=COLOR_TEXT_LIGHT, cursor="hand2")
     btn_cerrar.pack(fill="x", padx=15, pady=15, ipady=5)
 
@@ -328,7 +417,7 @@ def abrir_panel_alumno(usuario):
                     if val_o == "D" and not op_d: continue
                     ctk.CTkRadioButton(f_preg, text=txt_o, value=val_o, variable=var_resp, font=ctk.CTkFont("Segoe UI", 12),
                                        fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_TEXT_MUTED).pack(
-                                    anchor="w", padx=30, pady=5)
+                                   anchor="w", padx=30, pady=5)
 
             def evaluar():
                 correctas = sum(1 for p in preguntas_actuales if respuestas_usuario[p[0]].get() == p[6])
@@ -352,7 +441,6 @@ def abrir_panel_alumno(usuario):
         cont_p = ctk.CTkFrame(tab_practica, fg_color="transparent")
         cont_p.pack(fill="both", expand=True, padx=10, pady=5)
 
-        # Diccionario mapeando la unidad activa con las funciones de los módulos en tools/
         RUTAS_PRACTICAS_TOOLS = {
             1: [
                 ("Práctica 1", lambda p: practicas_u1.cargar_practica_u1_p1(p)),
@@ -394,7 +482,6 @@ def abrir_panel_alumno(usuario):
                     command=lambda f=func: f(cont_p)
                 ).pack(side="left", padx=5, expand=True, fill="x")
             
-            # Cargar por defecto la primera práctica de la unidad correspondiente
             practicas_unidad[0][1](cont_p)
 
         sub_pestanas.set(tab_teoria_name)
@@ -405,9 +492,13 @@ def abrir_panel_alumno(usuario):
         listbox_temas.selection_set(0)
         listbox_temas.event_generate("<<ListboxSelect>>")
 
-    ventana.bind("<Escape>", lambda e: ventana.quit())
+    ventana.bind("<Escape>", lambda e: ventana.destroy())
+    ventana.after(100, animar_entrada)
+    
+    ventana.mainloop()
+    
+    return sesion_cerrada["estado"]
+
 
 if __name__ == "__main__":
-    app = ctk.CTk()
-    app.withdraw()
     abrir_panel_alumno("AlumnoDemo")
