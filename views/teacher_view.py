@@ -28,7 +28,7 @@ def crear_barra_titulo(ventana, bg_color):
 
     btn_cerrar = ctk.CTkButton(barra_titulo, text="✕", font=("Segoe UI", 14), width=45, height=35, 
                                fg_color="transparent", hover_color="#E81123", text_color="white", 
-                               corner_radius=0, command=ventana.quit)
+                               corner_radius=0, command=ventana.destroy)
     btn_cerrar.pack(side="right")
 
     def toggle_maximizar():
@@ -44,6 +44,74 @@ def crear_barra_titulo(ventana, bg_color):
                             fg_color="transparent", hover_color=COLOR_BORDER, text_color="white", 
                             corner_radius=0, command=ventana.iconify)
     btn_min.pack(side="right")
+
+
+# ==========================================
+# MODAL PERSONALIZADO DE CIERRE DE SESIÓN HUD
+# ==========================================
+def confirmar_cierre_sesion_hud(parent):
+    resultado = {"confirmado": False}
+    
+    dialog = ctk.CTkToplevel(parent)
+    dialog.title("")
+    dialog.geometry("440x220")
+    dialog.configure(fg_color=COLOR_BG_DARK)
+    dialog.overrideredirect(True)
+    dialog.attributes("-alpha", 0.0)
+    dialog.grab_set()
+
+    parent.update_idletasks()
+    x = parent.winfo_x() + (parent.winfo_width() // 2) - 220
+    y = parent.winfo_y() + (parent.winfo_height() // 2) - 110
+    dialog.geometry(f"+{x}+{y}")
+
+    card_modal = ctk.CTkFrame(dialog, fg_color=COLOR_CARD, border_color=COLOR_ACCENT, border_width=1, corner_radius=12)
+    card_modal.pack(fill="both", expand=True, padx=10, pady=10)
+
+    ctk.CTkLabel(card_modal, text="⚠️ CONFIRMAR CIERRE DE SESIÓN", font=ctk.CTkFont("Segoe UI", 15, "bold"), text_color=COLOR_ACCENT).pack(pady=(22, 8))
+    
+    ctk.CTkLabel(card_modal, text="¿Estás seguro de que deseas cerrar sesión\ny regresar al panel principal de acceso?", 
+                 font=ctk.CTkFont("Segoe UI", 12), text_color=COLOR_TEXT_LIGHT, justify="center").pack(pady=(0, 20))
+
+    f_btns = ctk.CTkFrame(card_modal, fg_color="transparent")
+    f_btns.pack(pady=(0, 15))
+
+    id_anim_dialog = None
+    def animar_aparicion(alpha=0.0):
+        nonlocal id_anim_dialog
+        if alpha < 1.0:
+            alpha += 0.1
+            dialog.attributes("-alpha", alpha)
+            id_anim_dialog = dialog.after(15, lambda: animar_aparicion(alpha))
+
+    def cancelar():
+        if id_anim_dialog:
+            try: dialog.after_cancel(id_anim_dialog)
+            except: pass
+        resultado["confirmado"] = False
+        dialog.destroy()
+
+    def aceptar():
+        if id_anim_dialog:
+            try: dialog.after_cancel(id_anim_dialog)
+            except: pass
+        resultado["confirmado"] = True
+        dialog.destroy()
+
+    btn_cancelar = ctk.CTkButton(f_btns, text="Cancelar", command=cancelar, width=130, height=38,
+                                 fg_color=COLOR_ENTRY_BG, hover_color=COLOR_BORDER, text_color=COLOR_TEXT_LIGHT, 
+                                 font=ctk.CTkFont("Segoe UI", 12, "bold"), corner_radius=8, cursor="hand2")
+    btn_cancelar.pack(side="left", padx=10)
+
+    btn_aceptar = ctk.CTkButton(f_btns, text="Sí, Cerrar Sesión", command=aceptar, width=140, height=38,
+                                fg_color=COLOR_DANGER, hover_color=COLOR_DANGER_HOVER, text_color=COLOR_TEXT_LIGHT, 
+                                font=ctk.CTkFont("Segoe UI", 12, "bold"), corner_radius=8, cursor="hand2")
+    btn_aceptar.pack(side="left", padx=10)
+
+    animar_aparicion()
+    parent.wait_window(dialog)
+    return resultado["confirmado"]
+
 
 def obtener_grupos_de_docente(nombre_docente):
     conexion = sqlite3.connect(RUTA_DB)
@@ -82,10 +150,32 @@ def obtener_calificaciones_grupo(grupo_id):
     return alumnos, mapa_calif
 
 def abrir_panel_docente(usuario):
-    ventana = ctk.CTkToplevel()
+    ventana = ctk.CTk()
     ventana.title(f"LAB VISUAL FORENSE - Panel de Docente ({usuario})")
     ventana.attributes('-fullscreen', True)
     ventana.configure(fg_color=COLOR_BG_DARK)
+    ventana.attributes("-alpha", 0.0)
+
+    sesion_cerrada = {"estado": False}
+    id_animacion = None
+
+    def animar_entrada(alpha=0.0):
+        nonlocal id_animacion
+        if alpha < 1.0:
+            alpha += 0.05
+            ventana.attributes("-alpha", alpha)
+            id_animacion = ventana.after(20, lambda: animar_entrada(alpha))
+
+    def cerrar_sesion():
+        if confirmar_cierre_sesion_hud(ventana):
+            if id_animacion is not None:
+                try:
+                    ventana.after_cancel(id_animacion)
+                except Exception:
+                    pass
+            
+            sesion_cerrada["estado"] = True
+            ventana.destroy()
 
     # --- INSTANCIAR LA BARRA DE TÍTULO ---
     crear_barra_titulo(ventana, COLOR_BG_DARK)
@@ -97,7 +187,7 @@ def abrir_panel_docente(usuario):
     ctk.CTkLabel(header, text=f"👨‍🏫 PORTAL DOCENTE - {usuario.upper()}", font=ctk.CTkFont("Segoe UI", 16, "bold"), 
                  text_color=COLOR_ACCENT).pack(side="left", padx=20)
 
-    btn_cerrar = ctk.CTkButton(header, text="CERRAR SESIÓN", command=ventana.quit, 
+    btn_cerrar = ctk.CTkButton(header, text="CERRAR SESIÓN", command=cerrar_sesion, 
                                font=ctk.CTkFont("Segoe UI", 12, "bold"), fg_color=COLOR_DANGER, 
                                hover_color=COLOR_DANGER_HOVER, text_color=COLOR_TEXT_LIGHT, cursor="hand2")
     btn_cerrar.pack(side="right", padx=20)
@@ -194,6 +284,15 @@ def abrir_panel_docente(usuario):
         combo_grupos.configure(values=["Sin grupos"])
         combo_grupos.set("Sin grupos")
         ctk.CTkLabel(frame_tabla, text="No tienes grupos asignados actualmente.", 
-                     font=ctk.CTkFont("Segoe UI", 14, "italic"), text_color=COLOR_TEXT_MUTED).pack(pady=50)
+                     font=ctk.CTkFont("Segoe UI", 14, slant="italic"), text_color=COLOR_TEXT_MUTED).pack(pady=50)
 
-    ventana.bind("<Escape>", lambda e: ventana.quit())
+    ventana.bind("<Escape>", lambda e: ventana.destroy())
+    ventana.after(100, animar_entrada)
+
+    ventana.mainloop()
+
+    return sesion_cerrada["estado"]
+
+
+if __name__ == "__main__":
+    abrir_panel_docente("DocenteDemo")
