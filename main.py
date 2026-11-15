@@ -33,10 +33,10 @@ def crear_barra_titulo(ventana, bg_color):
     barra_titulo.pack(side="top", fill="x")
     barra_titulo.pack_propagate(False)
 
-    # Botón Cerrar (✕)
+    # Botón Cerrar (✕) - Cierra toda la aplicación de forma segura
     btn_cerrar = ctk.CTkButton(barra_titulo, text="✕", font=("Segoe UI", 14), width=45, height=35, 
                                fg_color="transparent", hover_color="#E81123", text_color="white", 
-                               corner_radius=0, command=ventana.quit)
+                               corner_radius=0, command=ventana.destroy)
     btn_cerrar.pack(side="right")
 
     # Botón Maximizar/Restaurar (🗗)
@@ -55,92 +55,111 @@ def crear_barra_titulo(ventana, bg_color):
                             corner_radius=0, command=ventana.iconify)
     btn_min.pack(side="right")
 
-# ==========================================
-# LÓGICA DE AUTENTICACIÓN
-# ==========================================
-def iniciar_sesion(event=None):
-    usuario = entry_usuario.get().strip()
-    clave = entry_clave.get().strip()
-
-    if not usuario or not clave:
-        messagebox.showwarning("Acceso Denegado", "Por favor, ingresa tu usuario y contraseña.")
-        return
-
-    progress_bar.set(0)
-    progress_bar.grid(row=5, column=0, pady=(15, 0), sticky="ew", padx=40)
-    ventana_login.update_idletasks()
-    
-    for i in range(1, 11):
-        progress_bar.set(i / 10)
-        ventana_login.update_idletasks()
-        time.sleep(0.03)
-
-    conexion = sqlite3.connect(DB_PATH)
-    cursor = conexion.cursor()
-    cursor.execute("SELECT rol FROM usuarios WHERE nombre_usuario = ? AND password = ?", (usuario, clave))
-    resultado = cursor.fetchone()
-    conexion.close()
-
-    if resultado:
-        rol = resultado[0]
-        ventana_login.withdraw() 
-
-        if rol == "admin":
-            from views.admin_view import abrir_panel_admin
-            abrir_panel_admin(usuario)
-        elif rol == "docente":
-            from views.teacher_view import abrir_panel_docente
-            abrir_panel_docente(usuario)
-        elif rol == "alumno":
-            from views.student_view import abrir_panel_alumno
-            abrir_panel_alumno(usuario)
-    else:
-        progress_bar.grid_remove()
-        messagebox.showerror("Error de Autenticación", "Usuario o contraseña incorrectos.")
-
 
 # ==========================================
-# PREPARAR BASE DE DATOS Y ARRANCAR APP
+# PREPARAR BASE DE DATOS
 # ==========================================
 inicializar_base_datos()
 cargar_datos_iniciales()
 
-ventana_login = ctk.CTk()
-ventana_login.title("LAB VISUAL FORENSE - Iniciar Sesión")
-ventana_login.configure(fg_color=COLOR_BG_DARK)
-ventana_login.attributes('-fullscreen', True)
 
-# --- INSTANCIAR LA BARRA DE TÍTULO ---
-crear_barra_titulo(ventana_login, COLOR_CARD)
+def ejecutar_sistema_login():
+    ventana_login = ctk.CTk()
+    ventana_login.title("LAB VISUAL FORENSE - Iniciar Sesión")
+    ventana_login.configure(fg_color=COLOR_BG_DARK)
+    ventana_login.attributes('-fullscreen', True)
+
+    # --- INSTANCIAR LA BARRA DE TÍTULO ---
+    crear_barra_titulo(ventana_login, COLOR_CARD)
+
+    # ==========================================
+    # INTERFAZ GRÁFICA (LOGIN)
+    # ==========================================
+    card = ctk.CTkFrame(ventana_login, width=400, height=450, fg_color=COLOR_CARD, border_color=COLOR_BORDER, border_width=1, corner_radius=15)
+    card.place(relx=0.5, rely=0.5, anchor="center")
+    card.grid_propagate(False)
+    card.grid_columnconfigure(0, weight=1)
+
+    titulo = ctk.CTkLabel(card, text="LAB VISUAL FORENSE", font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"), text_color=COLOR_ACCENT)
+    titulo.grid(row=0, column=0, pady=(40, 5))
+
+    subtitulo = ctk.CTkLabel(card, text="Acceso al sistema", font=ctk.CTkFont(family="Segoe UI", size=13), text_color=COLOR_TEXT_MUTED)
+    subtitulo.grid(row=1, column=0, pady=(0, 30))
+
+    entry_usuario = ctk.CTkEntry(card, placeholder_text="Usuario", font=ctk.CTkFont(family="Segoe UI", size=13), 
+                               fg_color=COLOR_ENTRY_BG, text_color=COLOR_TEXT_LIGHT, border_color=COLOR_BORDER, height=45, corner_radius=8)
+    entry_usuario.grid(row=2, column=0, sticky="ew", padx=40, pady=(0, 20))
+
+    entry_clave = ctk.CTkEntry(card, placeholder_text="Contraseña", show="*", font=ctk.CTkFont(family="Segoe UI", size=13), 
+                               fg_color=COLOR_ENTRY_BG, text_color=COLOR_TEXT_LIGHT, border_color=COLOR_BORDER, height=45, corner_radius=8)
+    entry_clave.grid(row=3, column=0, sticky="ew", padx=40, pady=(0, 30))
+
+    progress_bar = ctk.CTkProgressBar(card, orientation="horizontal", progress_color=COLOR_ACCENT, fg_color=COLOR_ENTRY_BG, height=8)
+    progress_bar.set(0)
+
+    # Variable compartida para saber si se debe reabrir el login o salir definitivamente
+    control_sesion = {"reabrir": False}
+
+    def iniciar_sesion(event=None):
+        usuario = entry_usuario.get().strip()
+        clave = entry_clave.get().strip()
+
+        if not usuario or not clave:
+            messagebox.showwarning("Acceso Denegado", "Por favor, ingresa tu usuario y contraseña.")
+            return
+
+        progress_bar.set(0)
+        progress_bar.grid(row=5, column=0, pady=(15, 0), sticky="ew", padx=40)
+        ventana_login.update_idletasks()
+        
+        for i in range(1, 11):
+            progress_bar.set(i / 10)
+            ventana_login.update_idletasks()
+            time.sleep(0.03)
+
+        conexion = sqlite3.connect(DB_PATH)
+        cursor = conexion.cursor()
+        cursor.execute("SELECT rol FROM usuarios WHERE nombre_usuario = ? AND password = ?", (usuario, clave))
+        resultado = cursor.fetchone()
+        conexion.close()
+
+        if resultado:
+            rol = resultado[0]
+            progress_bar.grid_remove()
+            ventana_login.destroy()  # Destruimos el login limpiamente antes de abrir el panel
+
+            regresar = False
+            if rol == "admin":
+                from views.admin_view import abrir_panel_admin
+                regresar = abrir_panel_admin(usuario)
+            elif rol == "docente":
+                from views.teacher_view import abrir_panel_docente
+                regresar = abrir_panel_docente(usuario) if "abrir_panel_docente" in globals() else True
+            elif rol == "alumno":
+                from views.student_view import abrir_panel_alumno
+                regresar = abrir_panel_alumno(usuario) if "abrir_panel_alumno" in globals() else True
+
+            # Si el panel reporta que se cerró sesión, activamos la bandera para relanzar
+            if regresar:
+                control_sesion["reabrir"] = True
+        else:
+            progress_bar.grid_remove()
+            messagebox.showerror("Error de Autenticación", "Usuario o contraseña incorrectos.")
+
+    btn_ingresar = ctk.CTkButton(card, text="INICIAR SESIÓN", command=iniciar_sesion, font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
+                                 fg_color=COLOR_ACCENT, text_color=COLOR_BG_DARK, hover_color=COLOR_ACCENT_HOVER, height=45, corner_radius=8, cursor="hand2")
+    btn_ingresar.grid(row=4, column=0, sticky="ew", padx=40)
+
+    ventana_login.bind('<Return>', iniciar_sesion)
+    ventana_login.mainloop()
+
+    return control_sesion["reabrir"]
 
 # ==========================================
-# INTERFAZ GRÁFICA (LOGIN)
+# BUCLE PRINCIPAL DE REINGRESO
 # ==========================================
-card = ctk.CTkFrame(ventana_login, width=400, height=450, fg_color=COLOR_CARD, border_color=COLOR_BORDER, border_width=1, corner_radius=15)
-card.place(relx=0.5, rely=0.5, anchor="center")
-card.grid_propagate(False)
-card.grid_columnconfigure(0, weight=1)
-
-titulo = ctk.CTkLabel(card, text="LAB VISUAL FORENSE", font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"), text_color=COLOR_ACCENT)
-titulo.grid(row=0, column=0, pady=(40, 5))
-
-subtitulo = ctk.CTkLabel(card, text="Acceso al sistema", font=ctk.CTkFont(family="Segoe UI", size=13), text_color=COLOR_TEXT_MUTED)
-subtitulo.grid(row=1, column=0, pady=(0, 30))
-
-entry_usuario = ctk.CTkEntry(card, placeholder_text="Usuario", font=ctk.CTkFont(family="Segoe UI", size=13), 
-                             fg_color=COLOR_ENTRY_BG, text_color=COLOR_TEXT_LIGHT, border_color=COLOR_BORDER, height=45, corner_radius=8)
-entry_usuario.grid(row=2, column=0, sticky="ew", padx=40, pady=(0, 20))
-
-entry_clave = ctk.CTkEntry(card, placeholder_text="Contraseña", show="*", font=ctk.CTkFont(family="Segoe UI", size=13), 
-                           fg_color=COLOR_ENTRY_BG, text_color=COLOR_TEXT_LIGHT, border_color=COLOR_BORDER, height=45, corner_radius=8)
-entry_clave.grid(row=3, column=0, sticky="ew", padx=40, pady=(0, 30))
-
-btn_ingresar = ctk.CTkButton(card, text="INICIAR SESIÓN", command=iniciar_sesion, font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
-                             fg_color=COLOR_ACCENT, text_color=COLOR_BG_DARK, hover_color=COLOR_ACCENT_HOVER, height=45, corner_radius=8, cursor="hand2")
-btn_ingresar.grid(row=4, column=0, sticky="ew", padx=40)
-
-progress_bar = ctk.CTkProgressBar(card, orientation="horizontal", progress_color=COLOR_ACCENT, fg_color=COLOR_ENTRY_BG, height=8)
-progress_bar.set(0)
-
-ventana_login.bind('<Return>', iniciar_sesion)
-ventana_login.mainloop()
+if __name__ == "__main__":
+    while True:
+        debe_reabrir = ejecutar_sistema_login()
+        if not debe_reabrir:
+            break
