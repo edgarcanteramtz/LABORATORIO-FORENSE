@@ -1,0 +1,23 @@
+import sqlite3
+import os
+
+RUTA_DB = os.path.join("database", "lab_forense.db")
+conexion = sqlite3.connect(RUTA_DB)
+cursor = conexion.cursor()
+
+# Insertar las 4 unidades por si falta alguna
+unidades = [
+    (1, "Fundamentos y Normativa de la Informática Forense", "Teoría U1"),
+    (2, "Metodología del Análisis Forense Informático", "Teoría U2"),
+    (3, "Herramientas de Análisis Forense Digital", "Teoría U3"),
+    (4, "Evidencia, Respuesta a Incidentes y Atribución", "Teoría U4")
+]
+
+for u, titulo, teoria in unidades:
+    cursor.execute("SELECT id FROM temas WHERE unidad = ?", (u,))
+    if not cursor.fetchone():
+        cursor.execute("INSERT INTO temas (unidad, titulo, contenido_teorico) VALUES (?, ?, ?)", (u, titulo, teoria))
+
+conexion.commit()
+conexion.close()
+print("¡Unidades verificadas e inserciones listas!")
