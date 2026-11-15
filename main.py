@@ -1,6 +1,7 @@
 import os
 import time
 import sqlite3
+from PIL import Image
 import customtkinter as ctk
 from tkinter import messagebox
 
@@ -24,6 +25,8 @@ COLOR_TEXT_LIGHT = "#FFFFFF"
 COLOR_TEXT_MUTED = "#64748B"
 COLOR_ENTRY_BG = "#0E1524"
 COLOR_BORDER = "#1E293B"
+COLOR_DANGER = "#E63946"
+COLOR_DANGER_HOVER = "#D62828"
 
 # ==========================================
 # BARRA DE TÍTULO PERSONALIZADA
@@ -73,31 +76,50 @@ def ejecutar_sistema_login():
     crear_barra_titulo(ventana_login, COLOR_CARD)
 
     # ==========================================
+    # CARGAR Y ACOPLAR IMAGEN DE FONDO FORENSE
+    # ==========================================
+    # Puedes colocar tu imagen en una carpeta assets/fondo_forense.png
+    dir_actual = os.path.dirname(os.path.abspath(__file__))
+    ruta_imagen = os.path.join(dir_actual, "assets", "fondo_forense.png")
+
+    try:
+        if os.path.exists(ruta_imagen):
+            img_pil = Image.open(ruta_imagen)
+            # Obtenemos las dimensiones de la pantalla para ajustar la imagen
+            ancho_pantalla = ventana_login.winfo_screenwidth()
+            alto_pantalla = ventana_login.winfo_screenheight()
+            
+            fondo_ctk = ctk.CTkImage(light_image=img_pil, dark_image=img_pil, size=(ancho_pantalla, alto_pantalla))
+            lbl_fondo = ctk.CTkLabel(ventana_login, image=fondo_ctk, text="")
+            lbl_fondo.place(x=0, y=35, relwidth=1, relheight=1)  # Se coloca debajo de la barra de título
+    except Exception as e:
+        print(f"Nota: No se pudo cargar la imagen de fondo: {e}. Se mantendrá el fondo oscuro sólido.")
+
+    # ==========================================
     # INTERFAZ GRÁFICA (LOGIN)
     # ==========================================
-    card = ctk.CTkFrame(ventana_login, width=400, height=450, fg_color=COLOR_CARD, border_color=COLOR_BORDER, border_width=1, corner_radius=15)
+    card = ctk.CTkFrame(ventana_login, width=400, height=520, fg_color=COLOR_CARD, border_color=COLOR_BORDER, border_width=1, corner_radius=15)
     card.place(relx=0.5, rely=0.5, anchor="center")
     card.grid_propagate(False)
     card.grid_columnconfigure(0, weight=1)
 
     titulo = ctk.CTkLabel(card, text="LAB VISUAL FORENSE", font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"), text_color=COLOR_ACCENT)
-    titulo.grid(row=0, column=0, pady=(40, 5))
+    titulo.grid(row=0, column=0, pady=(35, 5))
 
     subtitulo = ctk.CTkLabel(card, text="Acceso al sistema", font=ctk.CTkFont(family="Segoe UI", size=13), text_color=COLOR_TEXT_MUTED)
-    subtitulo.grid(row=1, column=0, pady=(0, 30))
+    subtitulo.grid(row=1, column=0, pady=(0, 25))
 
     entry_usuario = ctk.CTkEntry(card, placeholder_text="Usuario", font=ctk.CTkFont(family="Segoe UI", size=13), 
                                fg_color=COLOR_ENTRY_BG, text_color=COLOR_TEXT_LIGHT, border_color=COLOR_BORDER, height=45, corner_radius=8)
-    entry_usuario.grid(row=2, column=0, sticky="ew", padx=40, pady=(0, 20))
+    entry_usuario.grid(row=2, column=0, sticky="ew", padx=40, pady=(0, 15))
 
     entry_clave = ctk.CTkEntry(card, placeholder_text="Contraseña", show="*", font=ctk.CTkFont(family="Segoe UI", size=13), 
                                fg_color=COLOR_ENTRY_BG, text_color=COLOR_TEXT_LIGHT, border_color=COLOR_BORDER, height=45, corner_radius=8)
-    entry_clave.grid(row=3, column=0, sticky="ew", padx=40, pady=(0, 30))
+    entry_clave.grid(row=3, column=0, sticky="ew", padx=40, pady=(0, 20))
 
     progress_bar = ctk.CTkProgressBar(card, orientation="horizontal", progress_color=COLOR_ACCENT, fg_color=COLOR_ENTRY_BG, height=8)
     progress_bar.set(0)
 
-    # Variable compartida para saber si se debe reabrir el login o salir definitivamente
     control_sesion = {"reabrir": False}
 
     def iniciar_sesion(event=None):
@@ -109,7 +131,7 @@ def ejecutar_sistema_login():
             return
 
         progress_bar.set(0)
-        progress_bar.grid(row=5, column=0, pady=(15, 0), sticky="ew", padx=40)
+        progress_bar.grid(row=6, column=0, pady=(10, 0), sticky="ew", padx=40)
         ventana_login.update_idletasks()
         
         for i in range(1, 11):
@@ -126,7 +148,7 @@ def ejecutar_sistema_login():
         if resultado:
             rol = resultado[0]
             progress_bar.grid_remove()
-            ventana_login.destroy()  # Destruimos el login limpiamente antes de abrir el panel
+            ventana_login.destroy()
 
             regresar = False
             if rol == "admin":
@@ -134,21 +156,26 @@ def ejecutar_sistema_login():
                 regresar = abrir_panel_admin(usuario)
             elif rol == "docente":
                 from views.teacher_view import abrir_panel_docente
-                regresar = abrir_panel_docente(usuario) if "abrir_panel_docente" in globals() else True
+                regresar = abrir_panel_docente(usuario)
             elif rol == "alumno":
                 from views.student_view import abrir_panel_alumno
-                regresar = abrir_panel_alumno(usuario) if "abrir_panel_alumno" in globals() else True
+                regresar = abrir_panel_alumno(usuario)
 
-            # Si el panel reporta que se cerró sesión, activamos la bandera para relanzar
             if regresar:
                 control_sesion["reabrir"] = True
         else:
             progress_bar.grid_remove()
             messagebox.showerror("Error de Autenticación", "Usuario o contraseña incorrectos.")
 
+    # Botón Ingresar
     btn_ingresar = ctk.CTkButton(card, text="INICIAR SESIÓN", command=iniciar_sesion, font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
-                                 fg_color=COLOR_ACCENT, text_color=COLOR_BG_DARK, hover_color=COLOR_ACCENT_HOVER, height=45, corner_radius=8, cursor="hand2")
-    btn_ingresar.grid(row=4, column=0, sticky="ew", padx=40)
+                                 fg_color=COLOR_ACCENT, text_color=COLOR_BG_DARK, hover_color=COLOR_ACCENT_HOVER, height=42, corner_radius=8, cursor="hand2")
+    btn_ingresar.grid(row=4, column=0, sticky="ew", padx=40, pady=(0, 10))
+
+    # Botón Salir / Cerrar Programa
+    btn_salir_sistema = ctk.CTkButton(card, text="SALIR DEL PROGRAMA", command=ventana_login.destroy, font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+                                       fg_color=COLOR_DANGER, text_color=COLOR_TEXT_LIGHT, hover_color=COLOR_DANGER_HOVER, height=38, corner_radius=8, cursor="hand2")
+    btn_salir_sistema.grid(row=5, column=0, sticky="ew", padx=40)
 
     ventana_login.bind('<Return>', iniciar_sesion)
     ventana_login.mainloop()
