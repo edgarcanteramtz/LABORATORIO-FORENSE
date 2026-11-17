@@ -2,7 +2,7 @@ import os
 import hashlib
 from datetime import datetime
 import customtkinter as ctk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
 
 # Intentar importar ReportLab para generación de PDFs profesionales
 try:
@@ -15,9 +15,11 @@ try:
 except ImportError:
     REPORTLAB_DISPONIBLE = False
 
+COLOR_BG_DARK = "#05070A"
 COLOR_CARD = "#090D18"
 COLOR_ENTRY_BG = "#0E1524"
 COLOR_ACCENT = "#00F0FF"
+COLOR_ACCENT_HOVER = "#00C4D4"
 COLOR_TEXT_LIGHT = "#FFFFFF"
 COLOR_TEXT_MUTED = "#94A3B8"
 COLOR_SUCCESS = "#2EC4B6"
@@ -31,6 +33,58 @@ def limpiar(c):
 def obtener_ruta_descargas():
     """Retorna la ruta absoluta de la carpeta Descargas del usuario."""
     return os.path.join(os.path.expanduser("~"), "Downloads")
+
+
+# ==========================================
+# MODAL DE MENSAJE HUD PERSONALIZADO
+# ==========================================
+def mostrar_mensaje_hud(parent, titulo, mensaje, tipo="info"):
+    dialog = ctk.CTkToplevel(parent)
+    dialog.title("")
+    dialog.geometry("480x280")
+    dialog.configure(fg_color=COLOR_BG_DARK)
+    dialog.overrideredirect(True)
+    dialog.attributes("-alpha", 0.0)
+    dialog.grab_set()
+
+    parent.update_idletasks()
+    x = parent.winfo_x() + (parent.winfo_width() // 2) - 240
+    y = parent.winfo_y() + (parent.winfo_height() // 2) - 140
+    dialog.geometry(f"+{x}+{y}")
+
+    borde_color = COLOR_SUCCESS if tipo == "success" else (COLOR_DANGER if tipo == "error" else COLOR_ACCENT)
+    titulo_color = COLOR_SUCCESS if tipo == "success" else (COLOR_DANGER if tipo == "error" else COLOR_ACCENT)
+
+    card_modal = ctk.CTkFrame(dialog, fg_color=COLOR_CARD, border_color=borde_color, border_width=1, corner_radius=12)
+    card_modal.pack(fill="both", expand=True, padx=10, pady=10)
+
+    ctk.CTkLabel(card_modal, text=titulo, font=ctk.CTkFont("Segoe UI", 15, "bold"), text_color=titulo_color).pack(pady=(20, 8))
+    
+    lbl_msg = ctk.CTkLabel(card_modal, text=mensaje, font=ctk.CTkFont("Segoe UI", 12), text_color=COLOR_TEXT_LIGHT, justify="left", wraplength=420)
+    lbl_msg.pack(pady=(0, 20), padx=20)
+
+    id_anim_dialog = None
+    def animar_aparicion(alpha=0.0):
+        nonlocal id_anim_dialog
+        if alpha < 1.0:
+            alpha += 0.1
+            dialog.attributes("-alpha", alpha)
+            id_anim_dialog = dialog.after(15, lambda: animar_aparicion(alpha))
+
+    def cerrar():
+        if id_anim_dialog:
+            try: dialog.after_cancel(id_anim_dialog)
+            except: pass
+        dialog.destroy()
+
+    btn_ok = ctk.CTkButton(card_modal, text="Aceptar", command=cerrar, width=150, height=38,
+                           fg_color=borde_color, hover_color=COLOR_ACCENT_HOVER if tipo == "info" else borde_color, 
+                           text_color=COLOR_BG_DARK if tipo != "error" else COLOR_TEXT_LIGHT, 
+                           font=ctk.CTkFont("Segoe UI", 12, "bold"), corner_radius=8, cursor="hand2")
+    btn_ok.pack(pady=(0, 15))
+
+    animar_aparicion()
+    parent.wait_window(dialog)
 
 
 # ==========================================
@@ -62,7 +116,7 @@ def cargar_practica_u2_p1(container):
 
     def examinar_img():
         ruta = filedialog.askopenfilename(title="Seleccionar evidencia digital",
-                                          filetypes=[("Imágenes", "*.jpg *.jpeg *.png *.bmp")])
+                                         filetypes=[("Imágenes", "*.jpg *.jpeg *.png *.bmp")])
         if ruta:
             path_almacenado["ruta"] = ruta
             lbl_ruta_archivo.configure(text=ruta, text_color=COLOR_TEXT_LIGHT)
@@ -84,11 +138,11 @@ def cargar_practica_u2_p1(container):
 
     def generar_acta_pdf():
         if not path_almacenado["ruta"] or not entry_nombre.get().strip():
-            messagebox.showwarning("Atención", "Debes seleccionar una imagen y escribir un nombre para la evidencia.")
+            mostrar_mensaje_hud(container, "⚠️ Atención", "Debes seleccionar una imagen y escribir un nombre para la evidencia.", tipo="warning")
             return
 
         if not REPORTLAB_DISPONIBLE:
-            messagebox.showerror("Error", "La librería 'reportlab' no está instalada. Ejecuta: pip install reportlab")
+            mostrar_mensaje_hud(container, "❌ Error", "La librería 'reportlab' no está instalada. Ejecuta: pip install reportlab", tipo="error")
             return
 
         try:
@@ -164,10 +218,9 @@ def cargar_practica_u2_p1(container):
                 styles['Normal']))
 
             doc.build(elementos)
-            messagebox.showinfo("Reporte Generado con Éxito",
-                                f"El acta en PDF se guardó correctamente en tu carpeta de Descargas:\n\n{ruta_pdf}")
+            mostrar_mensaje_hud(container, "✨ Reporte Generado", f"El acta en PDF se guardó correctamente en tu carpeta de Descargas:\n\n{ruta_pdf}", tipo="success")
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo generar el PDF: {str(e)}")
+            mostrar_mensaje_hud(container, "❌ Error", f"No se pudo generar el PDF: {str(e)}", tipo="error")
 
     ctk.CTkButton(container, text="📄 Generar Acta de Recolección en PDF (Descargas)", command=generar_acta_pdf,
                   font=("Segoe UI", 12, "bold"), fg_color=COLOR_SUCCESS, text_color="#05070A", height=38).pack(fill="x",
@@ -218,25 +271,25 @@ def cargar_practica_u2_p2(container):
 
     def registrar_base():
         ruta = filedialog.askopenfilename(title="Seleccionar archivo de texto original",
-                                          filetypes=[("Archivos de Texto", "*.txt"), ("Todos los archivos", "*.*")])
+                                         filetypes=[("Archivos de Texto", "*.txt"), ("Todos los archivos", "*.*")])
         if not ruta: return
         try:
             nuevo_hash = calcular_sha256(ruta)
             estado_u2_p2["hash_base"] = nuevo_hash
             estado_u2_p2["nombre_base"] = os.path.basename(ruta)
             lbl_estado.configure(text=f"Base Registrada: {estado_u2_p2['nombre_base']}", text_color=COLOR_SUCCESS)
-            messagebox.showinfo("Base Registrada",
-                                f"Archivo original registrado con éxito.\nSHA-256 Base:\n{nuevo_hash}\n\nAhora edita el archivo en tu PC y presiona 'Verificar Modificación'.")
+            mostrar_mensaje_hud(container, "✨ Base Registrada",
+                                f"Archivo original registrado con éxito.\nSHA-256 Base:\n{nuevo_hash}\n\nAhora edita el archivo en tu PC y presiona 'Verificar Modificación'.", tipo="success")
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            mostrar_mensaje_hud(container, "❌ Error", str(e), tipo="error")
 
     def verificar_modificado():
         if not estado_u2_p2["hash_base"]:
-            messagebox.showwarning("Atención", "Primero debes registrar el archivo original (Paso 1).")
+            mostrar_mensaje_hud(container, "⚠️ Atención", "Primero debes registrar el archivo original (Paso 1).", tipo="warning")
             return
 
         ruta = filedialog.askopenfilename(title="Seleccionar archivo para verificar integridad",
-                                          filetypes=[("Archivos de Texto", "*.txt"), ("Todos los archivos", "*.*")])
+                                         filetypes=[("Archivos de Texto", "*.txt"), ("Todos los archivos", "*.*")])
         if not ruta: return
 
         try:
@@ -244,13 +297,13 @@ def cargar_practica_u2_p2(container):
             hash_base = estado_u2_p2["hash_base"]
 
             if hash_actual != hash_base:
-                messagebox.showerror("Alerta de Fraude / Modificación",
-                                     f"⚠️ Este archivo ya no es factible porque fue editado.\n\nHash Base:\n{hash_base}\n\nHash Actual:\n{hash_actual}\n\nResultado: La información ha sido alterada y ya no es confiable.")
+                mostrar_mensaje_hud(container, "🚨 Alerta de Fraude / Modificación",
+                                   f"⚠️ Este archivo fue editado.\n\nHash Base:\n{hash_base}\n\nHash Actual:\n{hash_actual}\n\nResultado: La información ha sido alterada y ya no es confiable.", tipo="error")
             else:
-                messagebox.showinfo("Integridad Verificada",
-                                    f"✅ El SHA-256 sigue siendo el mismo. La información sigue siendo confiable y no ha sufrido alteraciones.\n\nHash:\n{hash_actual}")
+                mostrar_mensaje_hud(container, "✨ Integridad Verificada",
+                                    f"✅ El SHA-256 sigue siendo el mismo. La información es confiable y no ha sufrido alteraciones.\n\nHash:\n{hash_actual}", tipo="success")
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            mostrar_mensaje_hud(container, "❌ Error", str(e), tipo="error")
 
     ctk.CTkButton(f_btns, text="1️⃣ Registrar Archivo Original (Base)", command=registrar_base, fg_color=COLOR_ACCENT,
                   text_color="#05070A", width=220).pack(side="left", padx=5)
@@ -302,21 +355,21 @@ def cargar_practica_u2_p3(container):
 
             txt_salida.configure(state="normal")
             txt_salida.delete("1.0", "end")
-            txt_salida.insert("end", f"Archivo: {os.path.basename(ruta)}\n\nMD5    : {m_val}\nSHA-256: {s_val}\n")
+            txt_salida.insert("end", f"Archivo: {os.path.basename(ruta)}\n\nMD5   : {m_val}\nSHA-256: {s_val}\n")
             txt_salida.configure(state="disabled")
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            mostrar_mensaje_hud(container, "❌ Error", str(e), tipo="error")
 
     ctk.CTkButton(f_input, text="Examinar Archivo...", command=calcular, fg_color=COLOR_ACCENT,
                   text_color="#05070A").pack(side="right", padx=15)
 
     def exportar_pdf_hashes():
         if not datos_hashes["md5"]:
-            messagebox.showwarning("Atención", "Primero calcula los hashes de un archivo.")
+            mostrar_mensaje_hud(container, "⚠️ Atención", "Primero calcula los hashes de un archivo.", tipo="warning")
             return
 
         if not REPORTLAB_DISPONIBLE:
-            messagebox.showerror("Error", "La librería 'reportlab' no está instalada. Ejecuta: pip install reportlab")
+            mostrar_mensaje_hud(container, "❌ Error", "La librería 'reportlab' no está instalada. Ejecuta: pip install reportlab", tipo="error")
             return
 
         try:
@@ -381,10 +434,9 @@ def cargar_practica_u2_p3(container):
             elementos.append(Paragraph(explicacion, styles['Normal']))
 
             doc.build(elementos)
-            messagebox.showinfo("Reporte Guardado",
-                                f"El reporte PDF de hashes se ha guardado en tu carpeta de Descargas:\n\n{ruta_pdf}")
+            mostrar_mensaje_hud(container, "✨ Reporte Guardado", f"El reporte PDF de hashes se ha guardado en tu carpeta de Descargas:\n\n{ruta_pdf}", tipo="success")
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo generar el PDF: {str(e)}")
+            mostrar_mensaje_hud(container, "❌ Error", f"No se pudo generar el PDF: {str(e)}", tipo="error")
 
     ctk.CTkButton(container, text="📄 Generar Reporte PDF con Explicación de Hashes (Descargas)",
                   command=exportar_pdf_hashes, font=("Segoe UI", 12, "bold"), fg_color="#2EC4B6", text_color="#05070A",
@@ -442,7 +494,7 @@ def cargar_practica_u2_p4(container):
 
     def generar_dictamen_pdf():
         if not REPORTLAB_DISPONIBLE:
-            messagebox.showerror("Error", "La librería 'reportlab' no está instalada. Ejecuta: pip install reportlab")
+            mostrar_mensaje_hud(container, "❌ Error", "La librería 'reportlab' no está instalada. Ejecuta: pip install reportlab", tipo="error")
             return
 
         try:
@@ -475,12 +527,11 @@ def cargar_practica_u2_p4(container):
                 styles['Normal']))
 
             doc.build(elementos)
-            messagebox.showinfo("Dictamen Generado",
-                                f"El dictamen técnico en PDF se ha guardado en tu carpeta de Descargas:\n\n{ruta_pdf}")
+            mostrar_mensaje_hud(container, "✨ Dictamen Generado", f"El dictamen técnico en PDF se ha guardado en tu carpeta de Descargas:\n\n{ruta_pdf}", tipo="success")
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo generar el PDF: {str(e)}")
+            mostrar_mensaje_hud(container, "❌ Error", f"No se pudo generar el PDF: {str(e)}", tipo="error")
 
     ctk.CTkButton(container, text="📄 Generar Dictamen Pericial en PDF (Descargas)", command=generar_dictamen_pdf,
                   font=("Segoe UI", 12, "bold"), fg_color=COLOR_ACCENT, text_color="#05070A", height=38).pack(fill="x",
-                                                                                                              padx=5,
-                                                                                                              pady=5)
+                                                                                                               padx=5,
+                                                                                                               pady=5)
