@@ -1,8 +1,18 @@
 import os
+import sys
 import sqlite3
 import tkinter as tk
 from tkinter import messagebox, ttk
 import customtkinter as ctk
+
+# Asegurar que la ruta raíz esté en el path para importar views sin problemas
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+try:
+    from views.tutorial_view import open_tutorial
+except ImportError:
+    def open_tutorial(*args, **kwargs):
+        return None
 
 # Intentar importar la ruta de DB centralizada o calcularla en su defecto
 try:
@@ -191,7 +201,7 @@ def abrir_panel_admin(usuario):
 
     def animar_entrada(alpha=0.0):
         nonlocal id_animacion
-        if alpha < 1.0:
+        if alpha < 1.0 and ventana.winfo_exists():
             alpha += 0.05
             ventana.attributes("-alpha", alpha)
             id_animacion = ventana.after(20, lambda: animar_entrada(alpha))
@@ -206,6 +216,7 @@ def abrir_panel_admin(usuario):
                     pass
             
             sesion_cerrada["estado"] = True
+            ventana.quit()
             ventana.destroy()
 
     # Estilos TTK solo para los Treeview (Tablas), ya que CTk no tiene tablas nativas
@@ -231,6 +242,13 @@ def abrir_panel_admin(usuario):
     btn_cerrar = ctk.CTkButton(header, text="CERRAR SESIÓN", command=cerrar_sesion, font=ctk.CTkFont("Segoe UI", 12, "bold"),
                                fg_color=COLOR_DANGER, hover_color=COLOR_DANGER_HOVER, text_color=COLOR_TEXT_LIGHT, corner_radius=8, cursor="hand2")
     btn_cerrar.pack(side="right", padx=15, pady=10)
+
+    btn_ayuda = ctk.CTkButton(header, text="❓ AYUDA / TUTORIAL",
+                              command=lambda: open_tutorial(ventana, role="admin", auto=False),
+                              font=ctk.CTkFont("Segoe UI", 12, "bold"),
+                              fg_color=COLOR_ENTRY_BG, hover_color=COLOR_BORDER,
+                              text_color=COLOR_ACCENT, corner_radius=8, cursor="hand2")
+    btn_ayuda.pack(side="right", padx=(0, 8), pady=10)
 
     # Pestañas de Navegación (CTkTabview)
     notebook = ctk.CTkTabview(container_main, fg_color=COLOR_CARD, segmented_button_selected_color=COLOR_BORDER,
@@ -579,6 +597,7 @@ def abrir_panel_admin(usuario):
 
     ventana.bind("<Escape>", lambda e: ventana.destroy())
     ventana.after(100, animar_entrada)
+    ventana.after(350, lambda: open_tutorial(ventana, role="admin", auto=True))
     
     ventana.mainloop()
     
