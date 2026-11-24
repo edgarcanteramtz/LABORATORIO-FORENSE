@@ -44,24 +44,67 @@ COLOR_DANGER = "#E63946"
 COLOR_DANGER_HOVER = "#D62828"
 
 
+def _cancelar_after(widget, after_id):
+    if widget is not None and after_id is not None:
+        try:
+            if widget.winfo_exists():
+                widget.after_cancel(after_id)
+        except Exception:
+            pass
+
+
+def _cerrar_ventana_seguro(ventana, after_ids=None):
+    if after_ids:
+        for aid in after_ids:
+            _cancelar_after(ventana, aid)
+    try:
+        if ventana.winfo_exists():
+            ventana.quit()
+    except Exception:
+        pass
+    try:
+        if ventana.winfo_exists():
+            ventana.destroy()
+    except Exception:
+        pass
+
+
 # ==========================================
 # MODAL HUD REUTILIZABLE (ESTILO DE LA APP)
 # ==========================================
 def mostrar_modal_hud(parent, titulo, mensaje, tipo="info", confirmar=False):
     resultado = {"valor": False if confirmar else True}
 
-    modal = ctk.CTkToplevel(parent)
+    if parent is None:
+        return resultado["valor"]
+    try:
+        if not parent.winfo_exists():
+            return resultado["valor"]
+    except Exception:
+        return resultado["valor"]
+
+    try:
+        modal = ctk.CTkToplevel(parent)
+    except Exception:
+        return resultado["valor"]
+
     modal.title("")
     modal.geometry("460x235")
     modal.configure(fg_color=COLOR_BG_DARK)
     modal.overrideredirect(True)
-    modal.attributes("-alpha", 0.0)
-    modal.grab_set()
 
-    parent.update_idletasks()
-    x = parent.winfo_x() + (parent.winfo_width() // 2) - 230
-    y = parent.winfo_y() + (parent.winfo_height() // 2) - 117
-    modal.geometry(f"+{x}+{y}")
+    try:
+        modal.attributes("-alpha", 0.0)
+    except Exception:
+        pass
+
+    try:
+        parent.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() // 2) - 230
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - 117
+        modal.geometry(f"+{x}+{y}")
+    except Exception:
+        pass
 
     borde = COLOR_DANGER if tipo == "error" else (COLOR_SUCCESS if tipo == "success" else COLOR_ACCENT)
     color_tit = COLOR_DANGER if tipo == "error" else (COLOR_SUCCESS if tipo == "success" else COLOR_ACCENT)
@@ -72,37 +115,46 @@ def mostrar_modal_hud(parent, titulo, mensaje, tipo="info", confirmar=False):
     card_m.pack(fill="both", expand=True, padx=10, pady=10)
 
     ctk.CTkLabel(
-        card_m, text=titulo, font=ctk.CTkFont("Segoe UI", 15, "bold"), text_color=color_tit
+        card_m, text=titulo, font=("Segoe UI", 15, "bold"), text_color=color_tit
     ).pack(pady=(20, 8))
 
     ctk.CTkLabel(
-        card_m, text=mensaje, font=ctk.CTkFont("Segoe UI", 12),
+        card_m, text=mensaje, font=("Segoe UI", 12),
         text_color=COLOR_TEXT_LIGHT, justify="center", wraplength=400
     ).pack(pady=(0, 18), padx=16)
 
     anim_id = None
+    cerrado = {"hecho": False}
 
     def fade_in(a=0.0):
         nonlocal anim_id
-        if a < 1.0 and modal.winfo_exists():
-            a = min(1.0, a + 0.12)
-            modal.attributes("-alpha", a)
-            anim_id = modal.after(15, lambda: fade_in(a))
+        if cerrado["hecho"]:
+            return
+        try:
+            if a < 1.0 and modal.winfo_exists():
+                a = min(1.0, a + 0.12)
+                modal.attributes("-alpha", a)
+                anim_id = modal.after(15, lambda: fade_in(a))
+        except Exception:
+            pass
 
     def cerrar(val):
         nonlocal anim_id
-        if anim_id:
-            try:
-                modal.after_cancel(anim_id)
-            except Exception:
-                pass
+        if cerrado["hecho"]:
+            return
+        cerrado["hecho"] = True
+        _cancelar_after(modal, anim_id)
+        anim_id = None
         resultado["valor"] = val
-        if modal.winfo_exists():
-            try:
-                modal.grab_release()
-            except Exception:
-                pass
-            modal.destroy()
+        try:
+            if modal.winfo_exists():
+                try:
+                    modal.grab_release()
+                except Exception:
+                    pass
+                modal.destroy()
+        except Exception:
+            pass
 
     f_btns = ctk.CTkFrame(card_m, fg_color="transparent")
     f_btns.pack(pady=(0, 14))
@@ -111,54 +163,79 @@ def mostrar_modal_hud(parent, titulo, mensaje, tipo="info", confirmar=False):
         ctk.CTkButton(
             f_btns, text="CANCELAR", command=lambda: cerrar(False), width=130, height=36,
             fg_color=COLOR_ENTRY_BG, hover_color=COLOR_BORDER, text_color=COLOR_TEXT_LIGHT,
-            font=ctk.CTkFont("Segoe UI", 12, "bold"), corner_radius=8, cursor="hand2"
+            font=("Segoe UI", 12, "bold"), corner_radius=8, cursor="hand2"
         ).pack(side="left", padx=8)
 
         ctk.CTkButton(
             f_btns, text="CONFIRMAR", command=lambda: cerrar(True), width=140, height=36,
             fg_color=COLOR_DANGER, hover_color=COLOR_DANGER_HOVER, text_color=COLOR_TEXT_LIGHT,
-            font=ctk.CTkFont("Segoe UI", 12, "bold"), corner_radius=8, cursor="hand2"
+            font=("Segoe UI", 12, "bold"), corner_radius=8, cursor="hand2"
         ).pack(side="left", padx=8)
     else:
         ctk.CTkButton(
             f_btns, text="ACEPTAR", command=lambda: cerrar(True), width=140, height=36,
             fg_color=borde, hover_color=COLOR_ACCENT_HOVER,
             text_color=COLOR_TEXT_LIGHT if tipo == "error" else COLOR_BG_DARK,
-            font=ctk.CTkFont("Segoe UI", 12, "bold"), corner_radius=8, cursor="hand2"
+            font=("Segoe UI", 12, "bold"), corner_radius=8, cursor="hand2"
         ).pack()
 
+    modal.protocol("WM_DELETE_WINDOW", lambda: cerrar(False if confirmar else True))
     modal.bind("<Return>", lambda e: cerrar(True))
     modal.bind("<Escape>", lambda e: cerrar(False if confirmar else True))
+
+    try:
+        modal.grab_set()
+    except Exception:
+        pass
+
     fade_in()
-    parent.wait_window(modal)
+
+    try:
+        if parent.winfo_exists() and modal.winfo_exists():
+            parent.wait_window(modal)
+    except Exception:
+        pass
+
     return resultado["valor"]
 
 
 # ==========================================
 # BARRA DE TÍTULO PERSONALIZADA
 # ==========================================
-def crear_barra_titulo(ventana, bg_color):
+def crear_barra_titulo(ventana, bg_color, on_salir=None):
     barra_titulo = ctk.CTkFrame(ventana, height=35, fg_color=bg_color, corner_radius=0)
     barra_titulo.pack(side="top", fill="x")
     barra_titulo.pack_propagate(False)
 
-    btn_cerrar = ctk.CTkButton(barra_titulo, text="✕", font=("Segoe UI", 14), width=45, height=35, 
-                               fg_color="transparent", hover_color="#E81123", text_color="white", 
-                               corner_radius=0, command=ventana.quit)
+    comando_cerrar = on_salir if on_salir else lambda: _cerrar_ventana_seguro(ventana)
+
+    btn_cerrar = ctk.CTkButton(
+        barra_titulo, text="✕", font=("Segoe UI", 14), width=45, height=35,
+        fg_color="transparent", hover_color="#E81123", text_color="white",
+        corner_radius=0, command=comando_cerrar
+    )
     btn_cerrar.pack(side="right")
 
     def toggle_maximizar():
-        es_fullscreen = ventana.attributes('-fullscreen')
-        ventana.attributes('-fullscreen', not es_fullscreen)
-        
-    btn_max = ctk.CTkButton(barra_titulo, text="🗗", font=("Segoe UI", 15), width=45, height=35, 
-                            fg_color="transparent", hover_color=COLOR_BORDER, text_color="white", 
-                            corner_radius=0, command=toggle_maximizar)
+        try:
+            if ventana.winfo_exists():
+                es_fullscreen = ventana.attributes('-fullscreen')
+                ventana.attributes('-fullscreen', not es_fullscreen)
+        except Exception:
+            pass
+
+    btn_max = ctk.CTkButton(
+        barra_titulo, text="🗗", font=("Segoe UI", 15), width=45, height=35,
+        fg_color="transparent", hover_color=COLOR_BORDER, text_color="white",
+        corner_radius=0, command=toggle_maximizar
+    )
     btn_max.pack(side="right")
 
-    btn_min = ctk.CTkButton(barra_titulo, text="—", font=("Segoe UI", 15, "bold"), width=45, height=35, 
-                            fg_color="transparent", hover_color=COLOR_BORDER, text_color="white", 
-                            corner_radius=0, command=ventana.iconify)
+    btn_min = ctk.CTkButton(
+        barra_titulo, text="—", font=("Segoe UI", 15, "bold"), width=45, height=35,
+        fg_color="transparent", hover_color=COLOR_BORDER, text_color="white",
+        corner_radius=0, command=ventana.iconify
+    )
     btn_min.pack(side="right")
 
 
@@ -278,27 +355,55 @@ def abrir_panel_alumno(usuario):
     ventana.attributes("-alpha", 0.0)
 
     sesion_cerrada = {"estado": False}
+    cerrando = {"activo": False}
     id_animacion = None
+    id_tutorial = None
 
     def animar_entrada(alpha=0.0):
         nonlocal id_animacion
-        if alpha < 1.0 and ventana.winfo_exists():
-            alpha += 0.05
-            ventana.attributes("-alpha", alpha)
-            id_animacion = ventana.after(20, lambda: animar_entrada(alpha))
+        if cerrando["activo"]:
+            return
+        try:
+            if alpha < 1.0 and ventana.winfo_exists():
+                alpha = min(1.0, alpha + 0.05)
+                ventana.attributes("-alpha", alpha)
+                id_animacion = ventana.after(20, lambda: animar_entrada(alpha))
+        except Exception:
+            pass
+
+    def disparar_tutorial_auto():
+        nonlocal id_tutorial
+        id_tutorial = None
+        if cerrando["activo"]:
+            return
+        try:
+            if ventana.winfo_exists():
+                open_tutorial(ventana, role="alumno", auto=True)
+        except Exception:
+            pass
+
+    def salir_directo():
+        if cerrando["activo"]:
+            return
+        cerrando["activo"] = True
+        _cerrar_ventana_seguro(ventana, [id_animacion, id_tutorial])
 
     def cerrar_sesion():
-        if confirmar_cierre_sesion_hud(ventana):
-            if id_animacion is not None:
-                try:
-                    ventana.after_cancel(id_animacion)
-                except Exception:
-                    pass
-            sesion_cerrada["estado"] = True
-            ventana.quit()
-            ventana.destroy()
+        if cerrando["activo"]:
+            return
+        try:
+            if not ventana.winfo_exists():
+                return
+        except Exception:
+            return
 
-    crear_barra_titulo(ventana, COLOR_BG_DARK)
+        if confirmar_cierre_sesion_hud(ventana):
+            cerrando["activo"] = True
+            sesion_cerrada["estado"] = True
+            _cerrar_ventana_seguro(ventana, [id_animacion, id_tutorial])
+
+    ventana.protocol("WM_DELETE_WINDOW", cerrar_sesion)
+    crear_barra_titulo(ventana, COLOR_BG_DARK, on_salir=cerrar_sesion)
 
     style = ttk.Style()
     style.theme_use("clam")
@@ -315,7 +420,7 @@ def abrir_panel_alumno(usuario):
     sidebar.pack(side="left", fill="y", padx=(0, 15))
     sidebar.pack_propagate(False)
 
-    ctk.CTkLabel(sidebar, text="UNIDADES DEL CURSO", font=ctk.CTkFont("Segoe UI", 12, "bold"), text_color=COLOR_TEXT_MUTED).pack(
+    ctk.CTkLabel(sidebar, text="UNIDADES DEL CURSO", font=("Segoe UI", 12, "bold"), text_color=COLOR_TEXT_MUTED).pack(
         pady=(22, 10), padx=18, anchor="w")
 
     temas = obtener_temas_bd()
@@ -337,7 +442,7 @@ def abrir_panel_alumno(usuario):
     panel_derecho.pack(side="right", fill="both", expand=True)
 
     lbl_titulo_tema = ctk.CTkLabel(panel_derecho, text="Selecciona un tema del temario para comenzar",
-                                   font=ctk.CTkFont("Segoe UI", 18, "bold"), text_color=COLOR_TEXT_LIGHT)
+                                   font=("Segoe UI", 18, "bold"), text_color=COLOR_TEXT_LIGHT)
     lbl_titulo_tema.pack(pady=(20, 10), padx=25, anchor="w")
 
     sub_pestanas = ctk.CTkTabview(panel_derecho, fg_color=COLOR_ENTRY_BG, segmented_button_selected_color=COLOR_BORDER,
@@ -357,7 +462,7 @@ def abrir_panel_alumno(usuario):
 
     # TABS SETUP
     tab_teoria = sub_pestanas.tab(tab_teoria_name)
-    area_teoria = ctk.CTkTextbox(tab_teoria, wrap="word", font=ctk.CTkFont("Segoe UI", 14), fg_color=COLOR_CARD,
+    area_teoria = ctk.CTkTextbox(tab_teoria, wrap="word", font=("Segoe UI", 14), fg_color=COLOR_CARD,
                                  text_color=COLOR_TEXT_LIGHT, border_width=0, corner_radius=10)
     area_teoria.pack(fill="both", expand=True, padx=15, pady=15)
     area_teoria.tag_config("subtitulo", foreground=COLOR_ACCENT)
@@ -439,7 +544,7 @@ def abrir_panel_alumno(usuario):
         area_teoria.configure(state="disabled")
 
         # 2. Cargar Cuestionario
-        for w in scrollable_quiz_inner.winfo_children(): 
+        for w in scrollable_quiz_inner.winfo_children():
             w.destroy()
         preguntas_actuales.clear()
         preguntas_actuales.extend(obtener_preguntas_unidad(tema_id))
@@ -447,7 +552,7 @@ def abrir_panel_alumno(usuario):
 
         if not preguntas_actuales:
             ctk.CTkLabel(scrollable_quiz_inner, text="No hay preguntas registradas para este tema.",
-                         font=ctk.CTkFont("Segoe UI", 13, slant="italic"), text_color=COLOR_TEXT_MUTED).pack(pady=30)
+                         font=("Segoe UI", 13, "italic"), text_color=COLOR_TEXT_MUTED).pack(pady=30)
         else:
             for p_idx, p in enumerate(preguntas_actuales):
                 p_id, preg, op_a, op_b, op_c, op_d, resp_correcta = p
@@ -455,7 +560,7 @@ def abrir_panel_alumno(usuario):
                 f_preg = ctk.CTkFrame(scrollable_quiz_inner, fg_color=COLOR_CARD, border_color=COLOR_BORDER, border_width=1, corner_radius=10)
                 f_preg.pack(fill="x", expand=True, pady=10, anchor="w")
 
-                ctk.CTkLabel(f_preg, text=f"{p_idx + 1}. {preg}", font=ctk.CTkFont("Segoe UI", 13, "bold"),
+                ctk.CTkLabel(f_preg, text=f"{p_idx + 1}. {preg}", font=("Segoe UI", 13, "bold"),
                              text_color=COLOR_TEXT_LIGHT, wraplength=700, justify="left").pack(anchor="w", padx=15, pady=(10, 5))
 
                 var_resp = tk.StringVar(value="")
@@ -463,16 +568,19 @@ def abrir_panel_alumno(usuario):
 
                 opciones = [("A) " + op_a, "A"), ("B) " + op_b, "B"), ("C) " + str(op_c), "C"), ("D) " + str(op_d), "D")]
                 for txt_o, val_o in opciones:
-                    if val_o == "C" and not op_c: continue
-                    if val_o == "D" and not op_d: continue
-                    ctk.CTkRadioButton(f_preg, text=txt_o, value=val_o, variable=var_resp, font=ctk.CTkFont("Segoe UI", 12),
+                    if val_o == "C" and not op_c:
+                        continue
+                    if val_o == "D" and not op_d:
+                        continue
+                    ctk.CTkRadioButton(f_preg, text=txt_o, value=val_o, variable=var_resp, font=("Segoe UI", 12),
                                        fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_TEXT_MUTED).pack(
                                    anchor="w", padx=30, pady=5)
 
             def evaluar():
                 correctas = sum(1 for p in preguntas_actuales if respuestas_usuario[p[0]].get() == p[6])
                 total = len(preguntas_actuales)
-                if total == 0: return
+                if total == 0:
+                    return
                 puntaje = int((correctas / total) * 100)
                 guardar_calificacion(usuario, tema_activo["id"], puntaje)
                 mostrar_modal_hud(
@@ -485,7 +593,7 @@ def abrir_panel_alumno(usuario):
                 actualizar_tabla_historial()
 
             ctk.CTkButton(scrollable_quiz_inner, text="ENVIAR RESPUESTAS DEL TEMA", command=evaluar,
-                          font=ctk.CTkFont("Segoe UI", 13, "bold"), fg_color=COLOR_SUCCESS, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_BG_DARK, corner_radius=8, cursor="hand2").pack(pady=20)
+                          font=("Segoe UI", 13, "bold"), fg_color=COLOR_SUCCESS, hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_BG_DARK, corner_radius=8, cursor="hand2").pack(pady=20)
 
         # 3. EXTRACCIÓN DINÁMICA DE PRÁCTICAS DESDE LA CARPETA TOOLS
         for w in tab_practica.winfo_children():
@@ -528,17 +636,17 @@ def abrir_panel_alumno(usuario):
         if practicas_unidad:
             for titulo, func in practicas_unidad:
                 ctk.CTkButton(
-                    menu_p, 
-                    text=titulo, 
-                    font=ctk.CTkFont("Segoe UI", 11, "bold"), 
-                    fg_color=COLOR_CARD, 
-                    hover_color=COLOR_BORDER, 
+                    menu_p,
+                    text=titulo,
+                    font=("Segoe UI", 11, "bold"),
+                    fg_color=COLOR_CARD,
+                    hover_color=COLOR_BORDER,
                     text_color=COLOR_ACCENT,
                     corner_radius=8,
-                    cursor="hand2", 
+                    cursor="hand2",
                     command=lambda f=func: f(cont_p)
                 ).pack(side="left", padx=5, expand=True, fill="x")
-            
+
             practicas_unidad[0][1](cont_p)
 
         sub_pestanas.set(tab_teoria_name)
@@ -553,32 +661,43 @@ def abrir_panel_alumno(usuario):
             fg_color=COLOR_ENTRY_BG,
             hover_color=COLOR_ACCENT_HOVER,
             text_color=COLOR_ACCENT,
-            font=ctk.CTkFont("Segoe UI", 12, "bold"),
+            font=("Segoe UI", 12, "bold"),
             corner_radius=8,
             cursor="hand2"
         )
         btn_u.pack(side="left", padx=3, expand=True)
         botones_unidad[u] = btn_u
 
-    btn_ayuda = ctk.CTkButton(sidebar, text="❓ AYUDA / TUTORIAL",
-                              command=lambda: open_tutorial(ventana, role="alumno", auto=False),
-                              font=ctk.CTkFont("Segoe UI", 12, "bold"),
-                              fg_color=COLOR_ENTRY_BG, hover_color=COLOR_BORDER,
-                              text_color=COLOR_ACCENT, corner_radius=8, cursor="hand2")
+    btn_ayuda = ctk.CTkButton(
+        sidebar, text="❓ AYUDA / TUTORIAL",
+        command=lambda: open_tutorial(ventana, role="alumno", auto=False),
+        font=("Segoe UI", 12, "bold"),
+        fg_color=COLOR_ENTRY_BG, hover_color=COLOR_BORDER,
+        text_color=COLOR_ACCENT, corner_radius=8, cursor="hand2"
+    )
     btn_ayuda.pack(fill="x", padx=15, pady=(0, 8), ipady=5)
 
-    btn_cerrar = ctk.CTkButton(sidebar, text="CERRAR SESIÓN", command=cerrar_sesion, font=ctk.CTkFont("Segoe UI", 12, "bold"),
-                               fg_color=COLOR_DANGER, hover_color=COLOR_DANGER_HOVER, text_color=COLOR_TEXT_LIGHT, corner_radius=8, cursor="hand2")
+    btn_cerrar = ctk.CTkButton(
+        sidebar, text="CERRAR SESIÓN", command=cerrar_sesion,
+        font=("Segoe UI", 12, "bold"), fg_color=COLOR_DANGER,
+        hover_color=COLOR_DANGER_HOVER, text_color=COLOR_TEXT_LIGHT,
+        corner_radius=8, cursor="hand2"
+    )
     btn_cerrar.pack(fill="x", padx=15, pady=(0, 15), ipady=5)
 
     cargar_detalle_tema(1)
 
-    ventana.bind("<Escape>", lambda e: ventana.destroy())
-    ventana.after(100, animar_entrada)
-    ventana.after(350, lambda: open_tutorial(ventana, role="alumno", auto=True))
-    
-    ventana.mainloop()
-    
+    ventana.bind("<Escape>", lambda e: salir_directo())
+    id_animacion = ventana.after(100, animar_entrada)
+    id_tutorial = ventana.after(350, disparar_tutorial_auto)
+
+    try:
+        ventana.mainloop()
+    finally:
+        cerrando["activo"] = True
+        _cancelar_after(ventana, id_animacion)
+        _cancelar_after(ventana, id_tutorial)
+
     return sesion_cerrada["estado"]
 
 
